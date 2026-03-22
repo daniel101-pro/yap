@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowUp, ChevronUp, CornerDownRight, MoreHorizontal, Trash2 } from 'lucide-react';
+import { X, ArrowUp, ChevronUp, CornerDownRight } from 'lucide-react';
 import { Comment } from '@/types';
 import { useStore } from '@/lib/store';
-import { timeAgo, formatNumber } from '@/lib/utils';
+import { timeAgo } from '@/lib/utils';
 
 interface CommentSheetProps {
   postId: string;
@@ -43,6 +43,10 @@ function CommentItem({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                style={{ backgroundColor: comment.isOP ? 'rgba(0,121,107,0.1)' : 'var(--color-surface, #f3f4f6)' }}>
+                {comment.isOP ? '✦' : '?'}
+              </div>
               <span className={`text-[12px] font-semibold ${comment.isOP ? 'text-exeter' : 'text-foreground/70'}`}>
                 {comment.isOP ? 'OP' : 'Anonymous'}
               </span>
@@ -55,13 +59,13 @@ function CommentItem({
                 {timeAgo(comment.timestamp)}
               </span>
             </div>
-            <p className="text-[14px] text-foreground/90 leading-relaxed">
+            <p className="text-[14px] text-foreground/90 leading-relaxed ml-8">
               {comment.content}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 mt-2">
+        <div className="flex items-center gap-4 mt-2 ml-8">
           <button
             onClick={handleUpvote}
             className={`flex items-center gap-1 text-[12px] transition-colors ${
@@ -85,7 +89,7 @@ function CommentItem({
 
       {/* Nested replies */}
       {comment.replies.length > 0 && (
-        <div className="border-l-2 border-divider pl-0">
+        <div className="border-l-2 pl-0" style={{ borderColor: 'var(--color-divider, #e5e7eb)' }}>
           {comment.replies.map((reply) => (
             <CommentItem
               key={reply.id}
@@ -138,7 +142,7 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         onClick={onClose}
-        className="fixed inset-0 bg-black/30 z-[60]"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
       />
 
       {/* Sheet */}
@@ -147,7 +151,8 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 350 }}
-        className="fixed bottom-0 left-0 right-0 z-[70] bg-background rounded-t-3xl max-h-[85vh] flex flex-col"
+        className="fixed bottom-0 left-0 right-0 z-[70] rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl"
+        style={{ backgroundColor: 'var(--color-background, #FFFFFF)' }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-2.5 pb-1">
@@ -155,15 +160,16 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-divider">
+        <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--color-divider, #e5e7eb)' }}>
           <h2 className="text-[16px] font-bold text-foreground">
             Comments ({post?.commentCount || 0})
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-surface-hover transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+            style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}
           >
-            <X className="w-5 h-5 text-muted" strokeWidth={1.8} />
+            <X className="w-4 h-4 text-muted" strokeWidth={2} />
           </button>
         </div>
 
@@ -175,14 +181,18 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
               <p className="text-[12px] text-muted-light mt-1">Be the first to comment</p>
             </div>
           ) : (
-            <div className="divide-y divide-divider">
-              {postComments.map((comment) => (
-                <CommentItem
-                  key={comment.id}
-                  comment={comment}
-                  postId={postId}
-                  onReply={(id) => setReplyingTo(id)}
-                />
+            <div>
+              {postComments.map((comment, i) => (
+                <div key={comment.id}>
+                  <CommentItem
+                    comment={comment}
+                    postId={postId}
+                    onReply={(id) => setReplyingTo(id)}
+                  />
+                  {i < postComments.length - 1 && (
+                    <div style={{ borderBottom: '1px solid var(--color-divider, #e5e7eb)' }} />
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -211,7 +221,12 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
         </AnimatePresence>
 
         {/* Input */}
-        <div className="px-5 py-3 border-t border-divider bg-background">
+        <div className="px-5 py-3 flex-shrink-0"
+          style={{
+            borderTop: '1px solid var(--color-divider, #e5e7eb)',
+            backgroundColor: 'var(--color-background, #FFFFFF)',
+          }}
+        >
           <div className="flex items-center gap-3">
             <input
               ref={inputRef}
@@ -219,7 +234,8 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
               onChange={(e) => setNewComment(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={replyingTo ? 'Write a reply...' : 'Add a comment...'}
-              className="flex-1 bg-surface rounded-full px-4 py-2.5 text-[14px] text-foreground placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-exeter/30"
+              className="flex-1 rounded-full px-4 py-2.5 text-[14px] text-foreground placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-exeter/30"
+              style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}
             />
             <motion.button
               whileTap={{ scale: 0.9 }}
@@ -228,8 +244,9 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
               className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
                 newComment.trim()
                   ? 'bg-exeter text-white'
-                  : 'bg-surface-hover text-muted-light'
+                  : 'text-muted-light'
               }`}
+              style={!newComment.trim() ? { backgroundColor: 'var(--color-surface-hover, #e5e7eb)' } : undefined}
             >
               <ArrowUp className="w-4 h-4" strokeWidth={2.5} />
             </motion.button>

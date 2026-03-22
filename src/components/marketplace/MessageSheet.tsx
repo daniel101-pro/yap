@@ -51,7 +51,7 @@ export default function MessageSheet({ conversationId, onClose }: MessageSheetPr
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         onClick={onClose}
-        className="fixed inset-0 bg-black/30 z-[80]"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[80]"
       />
 
       {/* Sheet */}
@@ -60,7 +60,8 @@ export default function MessageSheet({ conversationId, onClose }: MessageSheetPr
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 350 }}
-        className="fixed bottom-0 left-0 right-0 z-[90] bg-background rounded-t-3xl max-h-[85vh] flex flex-col"
+        className="fixed bottom-0 left-0 right-0 z-[90] rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl"
+        style={{ backgroundColor: 'var(--color-background, #FFFFFF)' }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-2.5 pb-1">
@@ -68,9 +69,11 @@ export default function MessageSheet({ conversationId, onClose }: MessageSheetPr
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-divider">
+        <div className="flex items-center justify-between px-5 py-3"
+          style={{ borderBottom: '1px solid var(--color-divider, #e5e7eb)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-surface border border-divider flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'var(--color-surface, #f3f4f6)', border: '1px solid var(--color-divider, #e5e7eb)' }}>
               <User className="w-4 h-4 text-muted" />
             </div>
             <div>
@@ -84,9 +87,10 @@ export default function MessageSheet({ conversationId, onClose }: MessageSheetPr
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-surface-hover transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+            style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}
           >
-            <X className="w-5 h-5 text-muted" strokeWidth={1.8} />
+            <X className="w-4 h-4 text-muted" strokeWidth={2} />
           </button>
         </div>
 
@@ -104,8 +108,9 @@ export default function MessageSheet({ conversationId, onClose }: MessageSheetPr
                 className={`max-w-[75%] px-4 py-2.5 rounded-2xl ${
                   msg.isOwn
                     ? 'bg-exeter text-white rounded-br-md'
-                    : 'bg-surface text-foreground rounded-bl-md'
+                    : 'text-foreground rounded-bl-md'
                 }`}
+                style={!msg.isOwn ? { backgroundColor: 'var(--color-surface, #f3f4f6)' } : undefined}
               >
                 <p className="text-[14px] leading-relaxed">{msg.content}</p>
                 <p className={`text-[10px] mt-1 ${
@@ -120,7 +125,12 @@ export default function MessageSheet({ conversationId, onClose }: MessageSheetPr
         </div>
 
         {/* Input */}
-        <div className="px-5 py-3 border-t border-divider bg-background">
+        <div className="px-5 py-3 flex-shrink-0"
+          style={{
+            borderTop: '1px solid var(--color-divider, #e5e7eb)',
+            backgroundColor: 'var(--color-background, #FFFFFF)',
+          }}
+        >
           <div className="flex items-center gap-3">
             <input
               ref={inputRef}
@@ -128,7 +138,8 @@ export default function MessageSheet({ conversationId, onClose }: MessageSheetPr
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
-              className="flex-1 bg-surface rounded-full px-4 py-2.5 text-[14px] text-foreground placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-exeter/30"
+              className="flex-1 rounded-full px-4 py-2.5 text-[14px] text-foreground placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-exeter/30"
+              style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}
             />
             <motion.button
               whileTap={{ scale: 0.9 }}
@@ -137,8 +148,9 @@ export default function MessageSheet({ conversationId, onClose }: MessageSheetPr
               className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
                 newMessage.trim()
                   ? 'bg-exeter text-white'
-                  : 'bg-surface-hover text-muted-light'
+                  : 'text-muted-light'
               }`}
+              style={!newMessage.trim() ? { backgroundColor: 'var(--color-surface-hover, #e5e7eb)' } : undefined}
             >
               <ArrowUp className="w-4 h-4" strokeWidth={2.5} />
             </motion.button>

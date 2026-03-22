@@ -302,7 +302,8 @@ export default function SettingsPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] bg-background border border-divider rounded-2xl p-6 w-[280px] text-center shadow-lg"
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] rounded-2xl p-6 w-[280px] text-center shadow-2xl"
+              style={{ backgroundColor: 'var(--color-background, #FFFFFF)', border: '1px solid var(--color-divider, #e5e7eb)' }}
             >
               <LogOut className="w-8 h-8 text-red-500 mx-auto mb-3" />
               <h3 className="text-[16px] font-bold text-foreground mb-2">Sign Out?</h3>
@@ -341,7 +342,8 @@ export default function SettingsPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] bg-background border border-divider rounded-2xl p-6 w-[280px] text-center shadow-lg"
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] rounded-2xl p-6 w-[280px] text-center shadow-2xl"
+              style={{ backgroundColor: 'var(--color-background, #FFFFFF)', border: '1px solid var(--color-divider, #e5e7eb)' }}
             >
               <Trash2 className="w-8 h-8 text-red-500 mx-auto mb-3" />
               <h3 className="text-[16px] font-bold text-foreground mb-2">Delete Account?</h3>
