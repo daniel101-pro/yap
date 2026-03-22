@@ -31,7 +31,7 @@ export default function ListingCard({ listing, index }: ListingCardProps) {
       className="cursor-pointer group"
     >
       {/* Image */}
-      <div className="aspect-[4/5] bg-white/[0.03] border border-white/[0.04] rounded-2xl overflow-hidden mb-3 transition-all duration-300 group-hover:bg-white/[0.06] group-hover:border-white/[0.08]">
+      <div className="aspect-[4/5] bg-surface border border-divider rounded-2xl overflow-hidden mb-3 transition-all duration-300 group-hover:bg-surface-hover group-hover:border-muted-light/30">
         {hasImage ? (
           <img
             src={listing.images[0]}
@@ -50,7 +50,7 @@ export default function ListingCard({ listing, index }: ListingCardProps) {
         <h3 className="text-[14px] font-semibold text-foreground/90 leading-snug line-clamp-2 mb-1">
           {listing.title}
         </h3>
-        <p className="text-[15px] font-bold text-white tracking-tight">
+        <p className="text-[15px] font-bold text-foreground tracking-tight">
           £{listing.price}
         </p>
         <p className="text-[11px] text-muted-light mt-1">

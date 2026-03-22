@@ -9,16 +9,29 @@ import CreatePostModal from '@/components/feed/CreatePostModal';
 import FeedPage from '@/components/pages/FeedPage';
 import MarketplacePage from '@/components/pages/MarketplacePage';
 import ProfilePage from '@/components/pages/ProfilePage';
+import SettingsPage from '@/components/pages/SettingsPage';
 
 export default function Home() {
-  const { isAuthenticated, activeTab } = useStore();
+  const { isAuthenticated, activeTab, theme, showSettings } = useStore();
 
   if (!isAuthenticated) {
-    return <HeroSection />;
+    return (
+      <div className="dark">
+        <HeroSection />
+      </div>
+    );
+  }
+
+  if (showSettings) {
+    return (
+      <div className={`min-h-dvh bg-background ${theme === 'dark' ? 'dark' : ''}`}>
+        <SettingsPage />
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-dvh bg-[#0A0A0A]">
+    <div className={`min-h-dvh bg-background ${theme === 'dark' ? 'dark' : ''}`}>
       <TopBar />
 
       <main className="pt-16 pb-24 max-w-2xl mx-auto">

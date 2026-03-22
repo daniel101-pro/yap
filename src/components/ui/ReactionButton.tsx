@@ -33,7 +33,7 @@ export default function ReactionButton({ reaction, count, isActive, onReact }: R
       className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] transition-all duration-200 min-h-[36px] ${
         isActive
           ? 'bg-exeter/15 text-exeter font-semibold'
-          : 'bg-white/[0.04] text-muted hover:bg-white/[0.08]'
+          : 'bg-surface text-muted hover:bg-surface-hover'
       }`}
     >
       <AnimatePresence>

@@ -43,7 +43,7 @@ export default function PostCard({ post, index }: PostCardProps) {
         ease: [0, 0, 0.2, 1],
       }}
       aria-label={`${getCategoryLabel(post.category)} post`}
-      className="py-5 border-b border-white/[0.04] last:border-b-0"
+      className="py-5 border-b border-divider last:border-b-0"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
@@ -70,7 +70,7 @@ export default function PostCard({ post, index }: PostCardProps) {
 
       {/* Media */}
       {mediaItems && (
-        <div className="mt-3 mb-1 rounded-2xl overflow-hidden bg-white/[0.03]">
+        <div className="mt-3 mb-1 rounded-2xl overflow-hidden bg-surface">
           {mediaItems.length === 1 ? (
             mediaItems[0].type === 'video' ? (
               <video
@@ -120,7 +120,7 @@ export default function PostCard({ post, index }: PostCardProps) {
                   <span
                     key={i}
                     className={`w-1.5 h-1.5 rounded-full transition-colors duration-200 ${
-                      i === activeMediaIndex ? 'bg-white/70' : 'bg-white/20'
+                      i === activeMediaIndex ? 'bg-foreground/70' : 'bg-foreground/20'
                     }`}
                   />
                 ))}

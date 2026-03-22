@@ -76,7 +76,7 @@ export default function CreatePostModal() {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 350 }}
-            className="fixed bottom-0 left-0 right-0 z-[70] bg-[#1c1c1e] rounded-t-3xl max-h-[90vh] overflow-y-auto"
+            className="fixed bottom-0 left-0 right-0 z-[70] bg-surface rounded-t-3xl max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-center pt-2.5 pb-1">
               <div className="w-9 h-1 rounded-full bg-muted-light" />
@@ -87,7 +87,7 @@ export default function CreatePostModal() {
               <div className="flex items-center justify-between py-3">
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="p-1.5 -ml-1.5 rounded-full hover:bg-surface transition-colors"
+                  className="p-1.5 -ml-1.5 rounded-full hover:bg-surface-hover transition-colors"
                 >
                   <X className="w-5 h-5 text-muted" strokeWidth={1.8} />
                 </button>
@@ -99,7 +99,7 @@ export default function CreatePostModal() {
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-semibold transition-all duration-300 ${
                     canSubmit
                       ? 'bg-exeter text-white'
-                      : 'bg-surface text-muted-light'
+                      : 'bg-surface-hover text-muted-light'
                   }`}
                 >
                   <ArrowUp className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -108,12 +108,12 @@ export default function CreatePostModal() {
               </div>
 
               {/* Mode Toggle */}
-              <div className="flex bg-surface rounded-xl p-0.5 mb-6">
+              <div className="flex bg-surface-hover rounded-xl p-0.5 mb-6">
                 <button
                   onClick={() => setCreateMode('post')}
                   className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] text-[13px] font-semibold transition-all duration-300 ${
                     createMode === 'post'
-                      ? 'bg-[#2c2c2e] text-foreground'
+                      ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted'
                   }`}
                 >
@@ -124,7 +124,7 @@ export default function CreatePostModal() {
                   onClick={() => setCreateMode('listing')}
                   className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[10px] text-[13px] font-semibold transition-all duration-300 ${
                     createMode === 'listing'
-                      ? 'bg-[#2c2c2e] text-foreground'
+                      ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted'
                   }`}
                 >
@@ -145,7 +145,7 @@ export default function CreatePostModal() {
                     {/* Category */}
                     <button
                       onClick={() => setShowCategories(!showCategories)}
-                      className="flex items-center gap-2 px-3.5 py-2 bg-surface rounded-full mb-5 text-[13px] font-medium text-foreground"
+                      className="flex items-center gap-2 px-3.5 py-2 bg-surface-hover rounded-full mb-5 text-[13px] font-medium text-foreground"
                     >
                       <CategoryIconInline category={category} className="w-3.5 h-3.5 text-exeter" />
                       <span>{getCategoryLabel(category)}</span>
@@ -169,7 +169,7 @@ export default function CreatePostModal() {
                                 className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-[13px] font-medium transition-all duration-200 ${
                                   category === cat
                                     ? 'bg-exeter text-white'
-                                    : 'bg-surface text-muted hover:text-foreground'
+                                    : 'bg-surface-hover text-muted hover:text-foreground'
                                 }`}
                               >
                                 <CategoryIconInline category={cat} className={`w-3.5 h-3.5 ${category === cat ? 'text-white' : 'text-muted'}`} />
@@ -188,7 +188,7 @@ export default function CreatePostModal() {
                       maxLength={500}
                       rows={6}
                       autoFocus
-                      className="w-full resize-none bg-transparent text-[16px] leading-relaxed placeholder:text-muted-light focus:outline-none"
+                      className="w-full resize-none bg-transparent text-[16px] text-foreground leading-relaxed placeholder:text-muted-light focus:outline-none"
                     />
                     <div className="flex justify-between items-center mt-3 pt-3 border-t border-divider">
                       <p className="text-[11px] text-muted-light">Anonymous · verified student</p>
@@ -212,7 +212,7 @@ export default function CreatePostModal() {
                       placeholder="What are you selling?"
                       maxLength={80}
                       autoFocus
-                      className="w-full bg-transparent text-[20px] font-semibold placeholder:text-muted-light focus:outline-none"
+                      className="w-full bg-transparent text-[20px] font-semibold text-foreground placeholder:text-muted-light focus:outline-none"
                     />
 
                     <div className="relative">
@@ -223,7 +223,7 @@ export default function CreatePostModal() {
                         placeholder="0"
                         type="text"
                         inputMode="decimal"
-                        className="w-full bg-transparent pl-7 text-[28px] font-bold placeholder:text-muted-light focus:outline-none"
+                        className="w-full bg-transparent pl-7 text-[28px] font-bold text-foreground placeholder:text-muted-light focus:outline-none"
                       />
                     </div>
 
@@ -232,7 +232,7 @@ export default function CreatePostModal() {
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Describe your item..."
                       rows={3}
-                      className="w-full resize-none bg-transparent text-[15px] leading-relaxed placeholder:text-muted-light focus:outline-none border-t border-divider pt-4"
+                      className="w-full resize-none bg-transparent text-[15px] text-foreground leading-relaxed placeholder:text-muted-light focus:outline-none border-t border-divider pt-4"
                     />
 
                     <div>
@@ -245,7 +245,7 @@ export default function CreatePostModal() {
                             className={`flex-1 py-2.5 rounded-xl text-[12px] font-semibold transition-all duration-200 ${
                               condition === c.value
                                 ? 'bg-exeter text-white'
-                                : 'bg-surface text-muted hover:text-foreground'
+                                : 'bg-surface-hover text-muted hover:text-foreground'
                             }`}
                           >
                             {c.label}
@@ -264,7 +264,7 @@ export default function CreatePostModal() {
                             className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-[13px] font-medium transition-all duration-200 ${
                               marketCategory === cat
                                 ? 'bg-exeter text-white'
-                                : 'bg-surface text-muted hover:text-foreground'
+                                : 'bg-surface-hover text-muted hover:text-foreground'
                             }`}
                           >
                             <CategoryIconInline category={cat} className={`w-3.5 h-3.5 ${marketCategory === cat ? 'text-white' : 'text-muted'}`} />

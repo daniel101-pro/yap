@@ -1,12 +1,12 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { TrendingUp, MessageSquare, ChevronRight, User, LogOut } from 'lucide-react';
+import { TrendingUp, MessageSquare, ChevronRight, User, Settings } from 'lucide-react';
 import { mockProfile } from '@/lib/mock-data';
 import { useStore } from '@/lib/store';
 
 export default function ProfilePage() {
-  const { posts } = useStore();
+  const { posts, setShowSettings } = useStore();
   const userPosts = posts.slice(0, 3);
 
   return (
@@ -22,7 +22,7 @@ export default function ProfilePage() {
           initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
           animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
           transition={{ duration: 0.6, ease: [0, 0, 0.2, 1] as const }}
-          className="w-20 h-20 rounded-full bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-5"
+          className="w-20 h-20 rounded-full bg-surface border border-divider flex items-center justify-center mb-5"
         >
           <User className="w-8 h-8 text-muted" strokeWidth={1.2} aria-hidden="true" />
         </motion.div>
@@ -66,7 +66,7 @@ export default function ProfilePage() {
           { icon: TrendingUp, value: mockProfile.karma.toLocaleString(), label: 'Karma' },
           { icon: MessageSquare, value: mockProfile.postCount, label: 'Yaps' },
         ].map((stat) => (
-          <div key={stat.label} className="bg-white/[0.04] border border-white/[0.04] rounded-2xl p-5 text-center">
+          <div key={stat.label} className="bg-surface border border-divider rounded-2xl p-5 text-center">
             <stat.icon className="w-5 h-5 text-exeter mx-auto mb-3" strokeWidth={1.5} aria-hidden="true" />
             <p className="text-[28px] font-black text-foreground tracking-tight leading-none">
               {stat.value}
@@ -86,7 +86,7 @@ export default function ProfilePage() {
         <h3 className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em] mb-4">
           Recent Yaps
         </h3>
-        <div className="divide-y divide-white/[0.04]">
+        <div className="divide-y divide-divider">
           {userPosts.map((post) => (
             <button
               key={post.id}
@@ -113,13 +113,13 @@ export default function ProfilePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 0.5 }}
       >
-        <h3 className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em] mb-4">
-          Settings
-        </h3>
-        <button className="w-full flex items-center justify-between py-4 text-left border-t border-white/[0.04] min-h-[48px]">
+        <button
+          onClick={() => setShowSettings(true)}
+          className="w-full flex items-center justify-between py-4 text-left border-t border-divider min-h-[48px]"
+        >
           <div className="flex items-center gap-3">
-            <LogOut className="w-4 h-4 text-muted-light" strokeWidth={1.5} />
-            <span className="text-[14px] text-foreground/90">Sign Out</span>
+            <Settings className="w-4 h-4 text-muted" strokeWidth={1.5} />
+            <span className="text-[14px] text-foreground/90">Settings</span>
           </div>
           <ChevronRight className="w-4 h-4 text-muted-light" aria-hidden="true" />
         </button>

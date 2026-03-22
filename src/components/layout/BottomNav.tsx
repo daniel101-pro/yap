@@ -15,7 +15,7 @@ export default function BottomNav() {
   const { activeTab, setActiveTab, setShowCreateModal } = useStore();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0A0A0A]/80 backdrop-blur-xl border-t border-white/[0.04]" aria-label="Main navigation">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-divider" aria-label="Main navigation">
       <div className="max-w-2xl mx-auto flex items-center justify-around px-4 pt-1 pb-[env(safe-area-inset-bottom)]">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -46,14 +46,14 @@ export default function BottomNav() {
                 <>
                   <tab.icon
                     className={`w-[21px] h-[21px] transition-all duration-300 ${
-                      isActive ? 'text-white' : 'text-muted-light'
+                      isActive ? 'text-foreground' : 'text-muted-light'
                     }`}
                     strokeWidth={isActive ? 2 : 1.5}
                     aria-hidden="true"
                   />
                   <span
                     className={`text-[10px] mt-1 font-medium transition-all duration-300 ${
-                      isActive ? 'text-white' : 'text-muted-light'
+                      isActive ? 'text-foreground' : 'text-muted-light'
                     }`}
                   >
                     {tab.label}

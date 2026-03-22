@@ -35,6 +35,15 @@ interface AppState {
   setShowCreateModal: (show: boolean) => void;
   createMode: 'post' | 'listing';
   setCreateMode: (mode: 'post' | 'listing') => void;
+
+  // Theme
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
+  toggleTheme: () => void;
+
+  // Settings navigation
+  showSettings: boolean;
+  setShowSettings: (show: boolean) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -110,4 +119,11 @@ export const useStore = create<AppState>((set) => ({
   setShowCreateModal: (show) => set({ showCreateModal: show }),
   createMode: 'post',
   setCreateMode: (mode) => set({ createMode: mode }),
+
+  theme: 'light',
+  setTheme: (theme) => set({ theme }),
+  toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
+
+  showSettings: false,
+  setShowSettings: (show) => set({ showSettings: show }),
 }));
