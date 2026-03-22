@@ -83,3 +83,35 @@ export interface UserProfile {
   isVerified: boolean;
   university: string;
 }
+
+export interface Notification {
+  id: string;
+  type: 'reaction' | 'comment' | 'reply' | 'listing_saved' | 'listing_sold' | 'system';
+  title: string;
+  body: string;
+  timestamp: Date;
+  read: boolean;
+  postId?: string;
+  listingId?: string;
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: Date;
+  isOwn: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  listingId: string;
+  listingTitle: string;
+  sellerId: string;
+  sellerName: string;
+  messages: Message[];
+  lastMessage: string;
+  lastMessageTime: Date;
+  unread: number;
+}

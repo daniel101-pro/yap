@@ -1,4 +1,4 @@
-import { Post, Listing, Comment, UserProfile, Seller } from '@/types';
+import { Post, Listing, Comment, UserProfile, Seller, Notification } from '@/types';
 
 // Reusable seller profiles
 export const mockSellers: Seller[] = [
@@ -401,3 +401,215 @@ export const mockProfile: UserProfile = {
   isVerified: true,
   university: 'University of Exeter',
 };
+
+// Comments for all posts
+export const allMockComments: Record<string, Comment[]> = {
+  '1': [
+    {
+      id: 'c1',
+      postId: '1',
+      content: 'WAS IT A GINGER CAT because I think that\'s Gerald and he lives in the Forum',
+      timestamp: new Date(Date.now() - 1000 * 60 * 15),
+      upvotes: 89,
+      replies: [
+        {
+          id: 'c1r1',
+          postId: '1',
+          content: 'Gerald is a campus legend at this point',
+          timestamp: new Date(Date.now() - 1000 * 60 * 10),
+          upvotes: 45,
+          replies: [],
+          isOP: false,
+        },
+      ],
+      isOP: false,
+    },
+    {
+      id: 'c2',
+      postId: '1',
+      content: 'I was in that lecture. The cat literally sat on the lecturer\'s keyboard and opened YouTube.',
+      timestamp: new Date(Date.now() - 1000 * 60 * 12),
+      upvotes: 234,
+      replies: [],
+      isOP: true,
+    },
+    {
+      id: 'c3',
+      postId: '1',
+      content: 'We don\'t deserve Gerald',
+      timestamp: new Date(Date.now() - 1000 * 60 * 8),
+      upvotes: 67,
+      replies: [],
+      isOP: false,
+    },
+  ],
+  '2': [
+    {
+      id: 'c4',
+      postId: '2',
+      content: 'I literally got elbowed trying to get a flat white yesterday',
+      timestamp: new Date(Date.now() - 1000 * 60 * 30),
+      upvotes: 156,
+      replies: [
+        {
+          id: 'c4r1',
+          postId: '2',
+          content: 'Should be an Olympic sport at this point',
+          timestamp: new Date(Date.now() - 1000 * 60 * 25),
+          upvotes: 78,
+          replies: [],
+          isOP: false,
+        },
+      ],
+      isOP: false,
+    },
+    {
+      id: 'c5',
+      postId: '2',
+      content: 'Costa in the library is clear, no queue ever',
+      timestamp: new Date(Date.now() - 1000 * 60 * 20),
+      upvotes: 45,
+      replies: [],
+      isOP: false,
+    },
+  ],
+  '4': [
+    {
+      id: 'c6',
+      postId: '4',
+      content: 'It\'s ALWAYS fish. Every. Single. Time.',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
+      upvotes: 201,
+      replies: [],
+      isOP: false,
+    },
+    {
+      id: 'c7',
+      postId: '4',
+      content: 'As someone who microwaves fish... no we don\'t need to talk',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60),
+      upvotes: 312,
+      replies: [
+        {
+          id: 'c7r1',
+          postId: '4',
+          content: 'Found them. Get them.',
+          timestamp: new Date(Date.now() - 1000 * 60 * 55),
+          upvotes: 189,
+          replies: [],
+          isOP: true,
+        },
+      ],
+      isOP: false,
+    },
+  ],
+  '5': [
+    {
+      id: 'c8',
+      postId: '5',
+      content: 'The disrespect to Unit 1 is UNREAL',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4),
+      upvotes: 67,
+      replies: [],
+      isOP: false,
+    },
+  ],
+  '8': [
+    {
+      id: 'c9',
+      postId: '8',
+      content: '47 words? Look at the overachiever over here',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 9),
+      upvotes: 456,
+      replies: [],
+      isOP: false,
+    },
+    {
+      id: 'c10',
+      postId: '8',
+      content: 'Currently on word 12 of my literature review. We\'re all going to be fine.',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8),
+      upvotes: 234,
+      replies: [],
+      isOP: false,
+    },
+  ],
+  '9': [
+    {
+      id: 'c11',
+      postId: '9',
+      content: 'Can confirm. Did a 9am for two terms. Never again.',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 11),
+      upvotes: 123,
+      replies: [],
+      isOP: false,
+    },
+  ],
+  '10': [
+    {
+      id: 'c12',
+      postId: '10',
+      content: '"No first years sorry" is doing heavy lifting in this post',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 13),
+      upvotes: 178,
+      replies: [],
+      isOP: false,
+    },
+  ],
+};
+
+export const mockNotifications: Notification[] = [
+  {
+    id: 'n1',
+    type: 'reaction',
+    title: 'Your yap is on fire',
+    body: '234 people reacted to your post about the cat in the Forum',
+    timestamp: new Date(Date.now() - 1000 * 60 * 5),
+    read: false,
+    postId: '1',
+  },
+  {
+    id: 'n2',
+    type: 'comment',
+    title: 'New comment on your yap',
+    body: '"WAS IT A GINGER CAT because I think that\'s Gerald..."',
+    timestamp: new Date(Date.now() - 1000 * 60 * 15),
+    read: false,
+    postId: '1',
+  },
+  {
+    id: 'n3',
+    type: 'listing_saved',
+    title: 'Someone saved your listing',
+    body: '34 people saved "MacBook Air M2 — barely used"',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
+    read: false,
+    listingId: 'l1',
+  },
+  {
+    id: 'n4',
+    type: 'reaction',
+    title: 'Trending yap',
+    body: 'Your hot take about Pret got 412 fire reactions',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
+    read: true,
+    postId: '2',
+  },
+  {
+    id: 'n5',
+    type: 'system',
+    title: 'Welcome to YAP',
+    body: 'You\'re verified and ready to go. Start yapping!',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
+    read: true,
+  },
+  {
+    id: 'n6',
+    type: 'comment',
+    title: 'Reply to your comment',
+    body: '"Gerald is a campus legend at this point"',
+    timestamp: new Date(Date.now() - 1000 * 60 * 30),
+    read: false,
+    postId: '1',
+  },
+];

@@ -10,14 +10,23 @@ import FeedPage from '@/components/pages/FeedPage';
 import MarketplacePage from '@/components/pages/MarketplacePage';
 import ProfilePage from '@/components/pages/ProfilePage';
 import SettingsPage from '@/components/pages/SettingsPage';
+import NotificationsPage from '@/components/pages/NotificationsPage';
 
 export default function Home() {
-  const { isAuthenticated, activeTab, theme, showSettings } = useStore();
+  const { isAuthenticated, activeTab, theme, showSettings, showNotifications } = useStore();
 
   if (!isAuthenticated) {
     return (
       <div className="dark">
         <HeroSection />
+      </div>
+    );
+  }
+
+  if (showNotifications) {
+    return (
+      <div className={`min-h-dvh bg-background ${theme === 'dark' ? 'dark' : ''}`}>
+        <NotificationsPage />
       </div>
     );
   }

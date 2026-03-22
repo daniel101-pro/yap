@@ -1,23 +1,23 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Poll } from '@/types';
+import { useStore } from '@/lib/store';
 import { formatNumber } from '@/lib/utils';
 
 interface PollCardProps {
   poll: Poll;
+  postId: string;
 }
 
-export default function PollCard({ poll }: PollCardProps) {
-  const [voted, setVoted] = useState<number | undefined>(poll.userVote);
+export default function PollCard({ poll, postId }: PollCardProps) {
+  const { voteOnPoll } = useStore();
+  const voted = poll.userVote;
 
   const handleVote = (optionId: number) => {
     if (voted !== undefined) return;
-    setVoted(optionId);
+    voteOnPoll(postId, optionId);
   };
-
-  const totalWithVote = poll.totalVotes + (voted !== undefined ? 1 : 0);
 
   return (
     <div className="space-y-2 mb-1">
@@ -25,7 +25,7 @@ export default function PollCard({ poll }: PollCardProps) {
       <div className="space-y-1.5">
         {poll.options.map((option) => {
           const percentage = voted !== undefined
-            ? Math.round((option.votes / totalWithVote) * 100)
+            ? Math.round((option.votes / poll.totalVotes) * 100)
             : 0;
           const isSelected = voted === option.id;
 
@@ -74,7 +74,7 @@ export default function PollCard({ poll }: PollCardProps) {
         })}
       </div>
       <p className="text-[11px] text-muted mt-1">
-        {formatNumber(totalWithVote)} votes
+        {formatNumber(poll.totalVotes)} votes
       </p>
     </div>
   );
