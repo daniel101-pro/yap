@@ -37,7 +37,7 @@ export default function HeroSection() {
           <source src="/exeter-campus.mp4" type="video/mp4" />
         </video>
         {/* Base gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/70" />
         {/* Scroll-reactive darkening overlay */}
         <motion.div
           className="absolute inset-0 bg-black"
@@ -89,42 +89,46 @@ export default function HeroSection() {
                 className="flex items-center justify-center gap-4 md:gap-16 px-6 py-4"
               >
                 {['20,000+ Students', 'University of Exeter', 'Verified Only'].map((text) => (
-                  <span key={text} className="text-[9px] md:text-[11px] font-semibold text-white/30 tracking-[0.08em] md:tracking-[0.1em] uppercase whitespace-nowrap">
+                  <span key={text} className="text-[9px] md:text-[11px] font-semibold text-white/80 tracking-[0.08em] md:tracking-[0.1em] uppercase whitespace-nowrap">
                     {text}
                   </span>
                 ))}
               </motion.div>
 
-              {/* Hero — massive headline */}
-              <div className="flex-1 flex flex-col justify-end lg:justify-center px-6 lg:px-12 pb-10 lg:pb-0 lg:items-center lg:text-center max-w-5xl mx-auto w-full">
+              {/* Spacer */}
+              <div className="flex-1" />
+
+              {/* Hero — massive headline + CTA */}
+              <div className="px-6 lg:px-16 pb-6 lg:flex lg:items-end lg:justify-between lg:gap-16 max-w-7xl mx-auto w-full">
+                {/* Left — headline */}
                 <motion.h1
                   initial={{ opacity: 0, y: 40, filter: 'blur(6px)' }}
                   animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                   transition={{ delay: 0.4, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                  className="text-[clamp(48px,12vw,84px)] leading-[0.9] font-black tracking-[-0.04em] text-white mb-10"
+                  className="text-[clamp(48px,12vw,80px)] leading-[0.9] font-black tracking-[-0.04em] text-white mb-10 lg:mb-0 lg:flex-1"
                 >
                   Your campus.
                   <br />
                   <span className="text-exeter-glow">Unfiltered.</span>
                 </motion.h1>
 
-                {/* CTA + subtext */}
+                {/* Right — CTA + subtext */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.8, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                  className="flex flex-col gap-5 lg:items-center"
+                  className="flex flex-col gap-5 lg:flex-none lg:w-[340px] lg:pb-1"
                 >
                   <button
                     onClick={() => setStep('email')}
-                    className="group flex items-center justify-center gap-3 bg-white text-[#0A0A0A] px-8 py-4 rounded-full text-[15px] lg:text-[16px] font-semibold tracking-[-0.01em] transition-all duration-300 hover:bg-white/90 min-h-[52px] w-full max-w-xs"
+                    className="group flex items-center justify-center gap-3 bg-white text-[#0A0A0A] px-8 py-4 rounded-full text-[15px] lg:text-[16px] font-semibold tracking-[-0.01em] transition-all duration-300 hover:bg-white/90 min-h-[52px] w-full max-w-xs lg:max-w-none"
                   >
                     <span className="w-5 h-5 bg-exeter rounded-md flex items-center justify-center text-[10px] font-black text-white">Y</span>
                     Start Yapping
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-300" strokeWidth={2.5} />
                   </button>
 
-                  <p className="text-[14px] text-white/40 leading-[1.5] max-w-xs lg:text-center">
+                  <p className="text-[14px] text-white/40 leading-[1.5] max-w-xs lg:max-w-none">
                     Anonymous posts. Campus marketplace.
                     <br />
                     No scrolling. No vanity. Just your uni.
