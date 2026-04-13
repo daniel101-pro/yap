@@ -109,7 +109,7 @@ export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMa
 
       {markerData.map((pin) => {
         return (
-          <Marker key={pin.id} center={pin.latlng} icon={pin.type === 'nightclub' ? clubIcon : partyIcon}>
+          <Marker key={pin.id} position={pin.latlng} icon={pin.type === 'nightclub' ? clubIcon : partyIcon}>
             <Popup>
               <div className="space-y-1">
                 <p className="text-sm font-semibold">{pin.name}</p>
@@ -130,7 +130,7 @@ export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMa
 
       {draftPin && (
         <Marker
-          center={[draftPin.lat, draftPin.lng]}
+          position={[draftPin.lat, draftPin.lng]}
           icon={draftIcon}
         />
       )}

@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { MapPin, Navigation, Ticket, Plus, Clock3 } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { NightlifePin } from '@/types';
 
 type NightlifeView = 'tickets' | 'map';
 const NightlifeMap = dynamic(() => import('./NightlifeMap'), { ssr: false });
@@ -26,7 +27,7 @@ export default function NightlifePage() {
     () => [...nightlifeTickets].sort((a, b) => +new Date(a.eventDate) - +new Date(b.eventDate)),
     [nightlifeTickets],
   );
-  const mappablePins = (Array.isArray(nightlifePins) ? nightlifePins : []).flatMap((pin) => {
+  const mappablePins: NightlifePin[] = (Array.isArray(nightlifePins) ? nightlifePins : []).flatMap((pin) => {
     if (!pin || typeof pin !== 'object') return [];
     const lat = Number((pin as { lat?: number }).lat);
     const lng = Number((pin as { lng?: number }).lng);
@@ -37,7 +38,7 @@ export default function NightlifePage() {
       lng,
       name: pin.name || 'Nightlife Spot',
       address: pin.address || 'Exeter',
-      type: pin.type === 'nightclub' ? 'nightclub' : 'house-party',
+      type: pin.type === 'nightclub' ? 'nightclub' as const : 'house-party' as const,
     }];
   });
   const clubs = mappablePins.filter((pin) => pin.type === 'nightclub');
