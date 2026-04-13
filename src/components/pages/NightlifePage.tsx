@@ -11,18 +11,21 @@ type NightlifeView = 'tickets' | 'map';
 const NightlifeMap = dynamic(() => import('./NightlifeMap'), { ssr: false });
 
 export default function NightlifePage() {
-  const { nightlifeTickets, addNightlifeTicket, nightlifePins, addNightlifePin } = useStore();
+  const { nightlifeTickets, addNightlifeTicket, nightlifePins, addNightlifePin, email } = useStore();
   const [view, setView] = useState<NightlifeView>('tickets');
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [showPartyForm, setShowPartyForm] = useState(false);
   const [ticketTitle, setTicketTitle] = useState('');
   const [ticketVenue, setTicketVenue] = useState('');
   const [ticketPrice, setTicketPrice] = useState('');
+  const [ticketQty, setTicketQty] = useState('1');
   const [partyName, setPartyName] = useState('');
   const [partyAddress, setPartyAddress] = useState('');
   const [selectedPoint, setSelectedPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [formError, setFormError] = useState('');
   const [isAddingParty, setIsAddingParty] = useState(false);
+  const [isConnectingStripe, setIsConnectingStripe] = useState(false);
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState<string | null>(null);
 
   const sortedTickets = useMemo(
     () => [...nightlifeTickets].sort((a, b) => +new Date(a.eventDate) - +new Date(b.eventDate)),
@@ -53,11 +56,57 @@ export default function NightlifePage() {
       venue: ticketVenue.trim(),
       price: Number(ticketPrice),
       eventDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      quantity: Math.max(1, Number(ticketQty) || 1),
     });
     setTicketTitle('');
     setTicketVenue('');
     setTicketPrice('');
+    setTicketQty('1');
     setShowTicketForm(false);
+  };
+
+  const handleStripeOnboard = async () => {
+    setIsConnectingStripe(true);
+    try {
+      const response = await fetch('/api/stripe/connect/onboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data?.error ?? 'Could not start Stripe onboarding.');
+      }
+    } catch {
+      alert('Stripe onboarding failed. Please try again.');
+    } finally {
+      setIsConnectingStripe(false);
+    }
+  };
+
+  const handleBuyTicket = async (ticketId: string) => {
+    const ticket = sortedTickets.find((t) => t.id === ticketId);
+    if (!ticket) return;
+    setIsCheckoutLoading(ticketId);
+    try {
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket }),
+      });
+      const data = await response.json();
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data?.error ?? 'Could not start checkout.');
+      }
+    } catch {
+      alert('Checkout failed. Please try again.');
+    } finally {
+      setIsCheckoutLoading(null);
+    }
   };
 
   const handleAddHouseParty = async (e: FormEvent) => {
@@ -139,13 +188,22 @@ export default function NightlifePage() {
         <section>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">Buy and Resell Club Tickets</h2>
-            <button
-              onClick={() => setShowTicketForm((s) => !s)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-exeter px-3 py-2 text-xs font-semibold text-white"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Sell Ticket
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleStripeOnboard}
+                disabled={isConnectingStripe}
+                className="rounded-xl bg-foreground px-3 py-2 text-xs font-semibold text-background disabled:opacity-60"
+              >
+                {isConnectingStripe ? 'Connecting...' : 'Payout Setup'}
+              </button>
+              <button
+                onClick={() => setShowTicketForm((s) => !s)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-exeter px-3 py-2 text-xs font-semibold text-white"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Sell Ticket
+              </button>
+            </div>
           </div>
 
           {showTicketForm && (
@@ -167,6 +225,12 @@ export default function NightlifePage() {
                   value={ticketPrice}
                   onChange={(e) => setTicketPrice(e.target.value.replace(/[^0-9.]/g, ''))}
                   placeholder="Price (£)"
+                  className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
+                />
+                <input
+                  value={ticketQty}
+                  onChange={(e) => setTicketQty(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="Qty"
                   className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
                 />
               </div>
@@ -191,10 +255,14 @@ export default function NightlifePage() {
                     <Clock3 className="h-3.5 w-3.5" />
                     {new Date(ticket.eventDate).toLocaleDateString()}
                   </span>
-                  <span>Seller: {ticket.sellerName}</span>
+                  <span>{ticket.quantity ?? 1} ticket(s) • {ticket.status ?? 'active'}</span>
                 </div>
-                <button className="mt-2 w-full rounded-xl bg-background py-2 text-xs font-semibold text-foreground">
-                  Buy / Message Seller
+                <button
+                  onClick={() => handleBuyTicket(ticket.id)}
+                  disabled={isCheckoutLoading === ticket.id}
+                  className="mt-2 w-full rounded-xl bg-background py-2 text-xs font-semibold text-foreground disabled:opacity-60"
+                >
+                  {isCheckoutLoading === ticket.id ? 'Opening Checkout...' : 'Buy with Stripe'}
                 </button>
               </div>
             ))}

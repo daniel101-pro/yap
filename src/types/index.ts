@@ -123,6 +123,9 @@ export interface NightlifeTicket {
   price: number;
   eventDate: Date;
   sellerName: string;
+  sellerStripeAccountId?: string;
+  quantity?: number;
+  status?: 'active' | 'sold' | 'reserved';
   isSold: boolean;
 }
 

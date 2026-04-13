@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import L from 'leaflet';
 import { Marker, Popup, TileLayer, useMapEvents, MapContainer } from 'react-leaflet';
 import { NightlifePin } from '@/types';
@@ -19,7 +20,17 @@ function MapClickCapture({ onMapClick }: { onMapClick: (coords: { lat: number; l
   return null;
 }
 
+function MapZoomWatcher({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
+  useMapEvents({
+    zoomend(event) {
+      onZoomChange(event.target.getZoom());
+    },
+  });
+  return null;
+}
+
 export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMapProps) {
+  const [zoomLevel, setZoomLevel] = useState(14);
   const safePins: Array<{
     id: string;
     name: string;
@@ -68,27 +79,33 @@ export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMa
     [50.77, -3.45],
   ];
 
+  // Bigger icons at wider view, gradually smaller as user zooms in.
+  const markerSize = Math.max(20, Math.min(42, Math.round(42 - (zoomLevel - 13) * 4)));
+  const markerFontSize = Math.max(12, Math.round(markerSize * 0.48));
+  const markerAnchor = Math.round(markerSize / 2);
+  const popupAnchorY = -Math.round(markerSize / 2);
+
   const clubIcon = L.divIcon({
     className: 'nightlife-marker-wrapper',
-    html: '<div class="nightlife-marker nightclub">🎵</div>',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
+    html: `<div class="nightlife-marker nightclub" style="width:${markerSize}px;height:${markerSize}px;font-size:${markerFontSize}px;">🎵</div>`,
+    iconSize: [markerSize, markerSize],
+    iconAnchor: [markerAnchor, markerAnchor],
+    popupAnchor: [0, popupAnchorY],
   });
 
   const partyIcon = L.divIcon({
     className: 'nightlife-marker-wrapper',
-    html: '<div class="nightlife-marker houseparty">🏠</div>',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
+    html: `<div class="nightlife-marker houseparty" style="width:${markerSize}px;height:${markerSize}px;font-size:${markerFontSize}px;">🏠</div>`,
+    iconSize: [markerSize, markerSize],
+    iconAnchor: [markerAnchor, markerAnchor],
+    popupAnchor: [0, popupAnchorY],
   });
 
   const draftIcon = L.divIcon({
     className: 'nightlife-marker-wrapper',
-    html: '<div class="nightlife-marker draft">📍</div>',
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    html: `<div class="nightlife-marker draft" style="width:${markerSize}px;height:${markerSize}px;font-size:${markerFontSize}px;">📍</div>`,
+    iconSize: [markerSize, markerSize],
+    iconAnchor: [markerAnchor, markerAnchor],
   });
 
   return (
@@ -136,6 +153,7 @@ export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMa
       )}
 
       <MapClickCapture onMapClick={onMapClick} />
+      <MapZoomWatcher onZoomChange={setZoomLevel} />
     </MapContainer>
   );
 }

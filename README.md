@@ -34,3 +34,15 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Stripe Setup (Nightlife Resale)
+
+To use ticket checkout and seller payouts in Nightlife, set:
+
+```bash
+STRIPE_SECRET_KEY=sk_live_or_test_xxx
+```
+
+The app now provides:
+- `POST /api/stripe/connect/onboard` for seller payout onboarding (Stripe Connect Express)
+- `POST /api/stripe/checkout` for buyer ticket checkout sessions
