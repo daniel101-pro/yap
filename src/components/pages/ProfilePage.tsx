@@ -41,15 +41,16 @@ export default function ProfilePage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className="px-5 pb-6"
+        className="px-5 pb-8"
       >
         {/* Profile Header */}
-        <div className="flex flex-col items-center pt-8 pb-10">
+        <div className="mb-7 rounded-3xl bg-surface/60 px-5 pb-8 pt-8">
+          <div className="flex flex-col items-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
             animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
             transition={{ duration: 0.6, ease: [0, 0, 0.2, 1] as const }}
-            className="w-20 h-20 rounded-full bg-surface border border-divider flex items-center justify-center mb-5"
+            className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-background shadow-[0_10px_24px_rgba(0,0,0,0.08)]"
           >
             <User className="w-8 h-8 text-muted" strokeWidth={1.2} aria-hidden="true" />
           </motion.div>
@@ -76,10 +77,11 @@ export default function ProfilePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.25 }}
-            className="text-[11px] text-muted-light mt-1"
+            className="mt-1 text-[11px] text-muted-light"
           >
             {email || 'user@exeter.ac.uk'}
           </motion.p>
+          </div>
         </div>
 
         {/* Stats */}
@@ -87,14 +89,14 @@ export default function ProfilePage() {
           initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           transition={{ delay: 0.3, duration: 0.6, ease: [0, 0, 0.2, 1] as const }}
-          className="grid grid-cols-3 gap-3 mb-8"
+          className="mb-8 grid grid-cols-3 gap-3"
         >
           {[
             { icon: TrendingUp, value: totalReactions.toLocaleString(), label: 'Reactions' },
             { icon: MessageSquare, value: postCount, label: 'Yaps' },
             { icon: Heart, value: savedListings.length, label: 'Saved' },
           ].map((stat) => (
-            <div key={stat.label} className="bg-surface border border-divider rounded-2xl p-4 text-center">
+            <div key={stat.label} className="rounded-2xl bg-surface/70 p-4 text-center">
               <stat.icon className="w-4 h-4 text-exeter mx-auto mb-2" strokeWidth={1.5} aria-hidden="true" />
               <p className="text-[22px] font-black text-foreground tracking-tight leading-none">
                 {stat.value}
@@ -110,11 +112,11 @@ export default function ProfilePage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35, duration: 0.5 }}
-            className="mb-8"
+            className="mb-8 rounded-2xl bg-surface/45 p-4"
           >
             <button
               onClick={() => setShowSaved(!showSaved)}
-              className="flex items-center justify-between w-full mb-3"
+              className="mb-3 flex w-full items-center justify-between"
             >
               <h3 className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em]">
                 Saved Listings ({savedListings.length})
@@ -131,14 +133,14 @@ export default function ProfilePage() {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="divide-y divide-divider">
+                  <div className="space-y-2">
                     {saved.map((listing) => (
                       <button
                         key={listing.id}
                         onClick={() => handleViewSavedListing(listing.id)}
-                        className="w-full text-left py-3 flex items-center justify-between group"
+                        className="group flex w-full items-center justify-between rounded-xl bg-background/80 px-3 py-3 text-left transition-colors hover:bg-background"
                       >
-                        <div className="flex-1 min-w-0 mr-4">
+                        <div className="mr-4 min-w-0 flex-1">
                           <p className="text-[14px] text-foreground/90 line-clamp-1 leading-snug">
                             {listing.title}
                           </p>
@@ -161,20 +163,20 @@ export default function ProfilePage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.5 }}
-          className="mb-8"
+          className="mb-8 rounded-2xl bg-surface/45 p-4"
         >
           <h3 className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em] mb-4">
             Recent Yaps
           </h3>
-          <div className="divide-y divide-divider">
+          <div className="space-y-2">
             {userPosts.map((post) => (
-              <div key={post.id} className="relative">
+              <div key={post.id} className="relative rounded-xl bg-background/80 px-3 transition-colors hover:bg-background">
                 <button
                   onClick={() => setOpenCommentPostId(post.id)}
-                  className="w-full text-left py-4 flex items-center justify-between group min-h-[48px]"
+                  className="group flex min-h-[48px] w-full items-center justify-between py-4 text-left"
                   aria-label={`View post: ${post.content?.slice(0, 40) || post.poll?.question}`}
                 >
-                  <div className="flex-1 min-w-0 mr-4">
+                  <div className="mr-4 min-w-0 flex-1">
                     <p className="text-[14px] text-foreground/90 line-clamp-1 leading-snug">
                       {post.content || post.poll?.question}
                     </p>
@@ -196,7 +198,7 @@ export default function ProfilePage() {
                 {post.id.startsWith('p') && (
                   <button
                     onClick={() => setConfirmDelete(post.id)}
-                    className="absolute right-8 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-red-500/10 transition-colors"
+                    className="absolute right-8 top-1/2 -translate-y-1/2 rounded-full p-2 transition-colors hover:bg-red-500/10"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-muted-light hover:text-red-500" />
                   </button>
@@ -214,7 +216,7 @@ export default function ProfilePage() {
         >
           <button
             onClick={() => setShowSettings(true)}
-            className="w-full flex items-center justify-between py-4 text-left border-t border-divider min-h-[48px]"
+            className="flex min-h-[48px] w-full items-center justify-between rounded-2xl bg-surface/55 px-4 py-4 text-left transition-colors hover:bg-surface"
           >
             <div className="flex items-center gap-3">
               <Settings className="w-4 h-4 text-muted" strokeWidth={1.5} />
@@ -251,7 +253,7 @@ export default function ProfilePage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] rounded-2xl p-6 w-[280px] text-center shadow-2xl"
-              style={{ backgroundColor: 'var(--color-background, #FFFFFF)', border: '1px solid var(--color-divider, #e5e7eb)' }}
+              style={{ backgroundColor: 'var(--color-background, #FFFFFF)' }}
             >
               <h3 className="text-[16px] font-bold text-foreground mb-2">Delete Yap?</h3>
               <p className="text-[13px] text-muted mb-5">This can&apos;t be undone.</p>

@@ -15,7 +15,7 @@ interface AppState {
   feedFilter: PostCategory | 'all';
   setFeedFilter: (filter: PostCategory | 'all') => void;
   reactToPost: (postId: string, reaction: Reaction) => void;
-  addPost: (content: string, category: PostCategory) => void;
+  addPost: (content: string, category: PostCategory, media?: Post['media']) => void;
   deletePost: (postId: string) => void;
   voteOnPoll: (postId: string, optionId: number) => void;
 
@@ -28,7 +28,7 @@ interface AppState {
   listings: Listing[];
   marketFilter: MarketCategory | 'all';
   setMarketFilter: (filter: MarketCategory | 'all') => void;
-  addListing: (listing: Omit<Listing, 'id' | 'timestamp' | 'isVerified' | 'isSold' | 'sellerKarma' | 'images' | 'seller' | 'reviews' | 'views' | 'saved'>) => void;
+  addListing: (listing: Omit<Listing, 'id' | 'timestamp' | 'isVerified' | 'isSold' | 'sellerKarma' | 'seller' | 'reviews' | 'views' | 'saved'>) => void;
   savedListings: string[];
   toggleSaveListing: (listingId: string) => void;
 
@@ -123,13 +123,14 @@ export const useStore = create<AppState>((set, get) => ({
         return { ...post, reactions, userReaction: null };
       }),
     })),
-  addPost: (content, category) =>
+  addPost: (content, category, media = []) =>
     set((state) => ({
       posts: [
         {
           id: `p${Date.now()}`,
           content,
           category,
+          media,
           reactions: { fire: 0, cap: 0, dead: 0, real: 0, sus: 0 },
           commentCount: 0,
           timestamp: new Date(),
@@ -233,7 +234,7 @@ export const useStore = create<AppState>((set, get) => ({
           isVerified: true,
           isSold: false,
           sellerKarma: 0,
-          images: [],
+          images: listing.images,
           seller: { id: 'self', name: 'You', rating: 5, totalSales: 0, joinDate: new Date() },
           reviews: [],
           views: 0,

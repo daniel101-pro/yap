@@ -27,8 +27,8 @@ export default function TopBar() {
   }, [showSearch]);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-divider">
-      <div className="max-w-2xl mx-auto flex items-center justify-between px-5 h-14">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-background/70 backdrop-blur-2xl shadow-[0_6px_24px_rgba(0,0,0,0.06)]">
+      <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-5">
         <AnimatePresence mode="wait">
           {showSearch ? (
             <motion.div

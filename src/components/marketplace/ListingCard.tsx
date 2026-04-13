@@ -28,21 +28,24 @@ export default function ListingCard({ listing, index }: ListingCardProps) {
       whileTap={{ scale: 0.98 }}
       onClick={() => setSelectedListing(listing)}
       aria-label={`${listing.title}, £${listing.price}`}
-      className="cursor-pointer group"
+      className="group cursor-pointer"
     >
       {/* Image */}
-      <div className="aspect-[4/5] bg-surface border border-divider rounded-2xl overflow-hidden mb-3 transition-all duration-300 group-hover:bg-surface-hover group-hover:border-muted-light/30">
+      <div className="relative mb-3 aspect-[4/5] overflow-hidden rounded-2xl bg-surface transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
         {hasImage ? (
           <img
             src={listing.images[0]}
             alt={listing.title}
-            className="w-full h-full object-cover"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
+          <div className="flex h-full w-full items-center justify-center">
             <Icon className="w-10 h-10 text-muted-light" strokeWidth={1} aria-hidden="true" />
           </div>
         )}
+        <span className="absolute left-2.5 top-2.5 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+          {getConditionLabel(listing.condition)}
+        </span>
       </div>
 
       {/* Info */}
@@ -50,11 +53,11 @@ export default function ListingCard({ listing, index }: ListingCardProps) {
         <h3 className="text-[14px] font-semibold text-foreground/90 leading-snug line-clamp-2 mb-1">
           {listing.title}
         </h3>
-        <p className="text-[15px] font-bold text-foreground tracking-tight">
+        <p className="text-[16px] font-bold tracking-tight text-foreground">
           £{listing.price}
         </p>
-        <p className="text-[11px] text-muted-light mt-1">
-          {getConditionLabel(listing.condition)}
+        <p className="mt-1 text-[11px] text-muted-light">
+          {listing.category.charAt(0).toUpperCase() + listing.category.slice(1)}
         </p>
       </div>
     </motion.article>

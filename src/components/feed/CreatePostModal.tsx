@@ -28,6 +28,10 @@ export default function CreatePostModal() {
   const [price, setPrice] = useState('');
   const [marketCategory, setMarketCategory] = useState<MarketCategory>('other');
   const [condition, setCondition] = useState<'new' | 'like-new' | 'good' | 'fair'>('good');
+  const [postMedia, setPostMedia] = useState<{ type: 'image' | 'video'; url: string }[]>([]);
+  const [listingImages, setListingImages] = useState<string[]>([]);
+  const postMediaInputRef = useRef<HTMLInputElement>(null);
+  const listingImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (showCreateModal && createMode === 'post' && textareaRef.current) {
@@ -35,11 +39,43 @@ export default function CreatePostModal() {
     }
   }, [showCreateModal, createMode]);
 
-  const handleSubmitPost = () => {
-    if (!content.trim()) return;
-    addPost(content.trim(), category);
+  const clearComposer = () => {
     setContent('');
+    setTitle('');
+    setDescription('');
+    setPrice('');
+    setPostMedia([]);
+    setListingImages([]);
     setShowCreateModal(false);
+  };
+
+  const handleClose = () => {
+    clearComposer();
+  };
+
+  const handlePostMediaPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const next = files.slice(0, 4).map((file) => ({
+      type: file.type.startsWith('video/') ? 'video' as const : 'image' as const,
+      url: URL.createObjectURL(file),
+    }));
+    setPostMedia((prev) => [...prev, ...next].slice(0, 4));
+    e.target.value = '';
+  };
+
+  const handleListingImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const next = files.slice(0, 6).map((file) => URL.createObjectURL(file));
+    setListingImages((prev) => [...prev, ...next].slice(0, 6));
+    e.target.value = '';
+  };
+
+  const handleSubmitPost = () => {
+    if (!content.trim() && postMedia.length === 0) return;
+    addPost(content.trim(), category, postMedia);
+    clearComposer();
   };
 
   const handleSubmitListing = () => {
@@ -50,14 +86,12 @@ export default function CreatePostModal() {
       price: parseFloat(price),
       category: marketCategory,
       condition,
+      images: listingImages,
     });
-    setTitle('');
-    setDescription('');
-    setPrice('');
-    setShowCreateModal(false);
+    clearComposer();
   };
 
-  const canSubmit = createMode === 'post' ? content.trim().length > 0 : title.trim().length > 0 && price;
+  const canSubmit = createMode === 'post' ? content.trim().length > 0 || postMedia.length > 0 : title.trim().length > 0 && price;
   const charPercent = Math.min((content.length / 500) * 100, 100);
 
   return (
@@ -70,28 +104,23 @@ export default function CreatePostModal() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            onClick={() => setShowCreateModal(false)}
+            onClick={handleClose}
             className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60]"
           />
 
           {/* Modal */}
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 32, stiffness: 380 }}
-            className="fixed bottom-0 left-0 right-0 z-[70] rounded-t-3xl max-h-[92vh] overflow-hidden flex flex-col"
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.98 }}
+            transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-x-0 top-[6vh] z-[70] mx-auto flex max-h-[88vh] w-[min(920px,calc(100vw-24px))] flex-col overflow-hidden rounded-3xl shadow-[0_24px_80px_rgba(0,0,0,0.28)]"
             style={{ backgroundColor: 'var(--color-background, #FFFFFF)' }}
           >
-            {/* Handle */}
-            <div className="flex justify-center pt-2.5 pb-1 flex-shrink-0">
-              <div className="w-9 h-1 rounded-full bg-muted-light" />
-            </div>
-
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-2 flex-shrink-0">
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={handleClose}
                 className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[var(--color-surface,#f3f4f6)] transition-colors"
               >
                 <X className="w-5 h-5 text-muted" strokeWidth={1.8} />
@@ -143,7 +172,7 @@ export default function CreatePostModal() {
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto px-5 pb-8">
+            <div className="flex-1 overflow-y-auto px-5 pb-8 pt-1">
               <AnimatePresence mode="wait">
                 {createMode === 'post' ? (
                   <motion.div
@@ -197,12 +226,44 @@ export default function CreatePostModal() {
                       </div>
                     </div>
 
+                    {postMedia.length > 0 && (
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        {postMedia.map((item, i) => (
+                          <div key={`${item.url}-${i}`} className="relative overflow-hidden rounded-xl bg-surface">
+                            {item.type === 'video' ? (
+                              <video src={item.url} className="h-32 w-full object-cover" muted playsInline />
+                            ) : (
+                              <img src={item.url} alt={`Upload preview ${i + 1}`} className="h-32 w-full object-cover" />
+                            )}
+                            <button
+                              onClick={() => setPostMedia((prev) => prev.filter((_, idx) => idx !== i))}
+                              className="absolute right-1.5 top-1.5 rounded-full bg-black/60 px-2 py-1 text-[11px] text-white"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Bottom bar */}
                     <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: '1px solid var(--color-divider, #e5e7eb)' }}>
                       <div className="flex items-center gap-2">
-                        <button className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-exeter/10 transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => postMediaInputRef.current?.click()}
+                          className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-exeter/10 transition-colors"
+                        >
                           <ImagePlus className="w-[18px] h-[18px] text-exeter" strokeWidth={1.8} />
                         </button>
+                        <input
+                          ref={postMediaInputRef}
+                          type="file"
+                          accept="image/*,video/*"
+                          multiple
+                          onChange={handlePostMediaPick}
+                          className="hidden"
+                        />
                         <span className="text-[11px] text-muted-light">Verified student</span>
                       </div>
 
@@ -288,6 +349,41 @@ export default function CreatePostModal() {
                         className="w-full rounded-xl px-4 py-3.5 text-[14px] text-foreground leading-relaxed placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-exeter/30 resize-none transition-all"
                         style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}
                       />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-muted uppercase tracking-wider mb-2 block">Photos</label>
+                      <button
+                        type="button"
+                        onClick={() => listingImageInputRef.current?.click()}
+                        className="mb-3 inline-flex items-center gap-2 rounded-xl bg-surface px-3.5 py-2.5 text-[13px] font-semibold text-foreground"
+                      >
+                        <ImagePlus className="h-4 w-4 text-exeter" />
+                        Add Photos
+                      </button>
+                      <input
+                        ref={listingImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleListingImagePick}
+                        className="hidden"
+                      />
+                      {listingImages.length > 0 && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {listingImages.map((url, i) => (
+                            <div key={`${url}-${i}`} className="relative overflow-hidden rounded-lg bg-surface">
+                              <img src={url} alt={`Listing image ${i + 1}`} className="h-20 w-full object-cover" />
+                              <button
+                                onClick={() => setListingImages((prev) => prev.filter((_, idx) => idx !== i))}
+                                className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                              >
+                                x
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Condition */}

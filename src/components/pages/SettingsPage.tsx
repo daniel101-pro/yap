@@ -85,8 +85,8 @@ export default function SettingsPage() {
     <>
       <div className="min-h-dvh bg-background text-foreground">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-divider">
-          <div className="flex items-center h-14 px-4 max-w-2xl mx-auto">
+        <div className="sticky top-0 z-10 bg-background/70 backdrop-blur-2xl shadow-[0_6px_24px_rgba(0,0,0,0.06)]">
+          <div className="mx-auto flex h-14 max-w-2xl items-center px-4">
             <button
               onClick={() => setShowSettings(false)}
               className="flex items-center gap-1 text-exeter font-medium text-sm"
@@ -101,13 +101,14 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="max-w-2xl mx-auto px-4 py-6 space-y-8 pb-32">
+        <div className="mx-auto max-w-2xl space-y-8 px-4 py-6 pb-32">
           {/* Account */}
           <section>
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-1">
               Account
             </h2>
-            <div className="rounded-xl bg-surface overflow-hidden divide-y divide-divider">
+            <div className="overflow-hidden rounded-2xl bg-surface/60">
+              <div className="mx-4 h-px bg-divider/45" />
               <div className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-3">
                   <Mail size={18} className="text-muted" />
@@ -130,7 +131,7 @@ export default function SettingsPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-1">
               Appearance
             </h2>
-            <div className="rounded-xl bg-surface overflow-hidden">
+            <div className="overflow-hidden rounded-2xl bg-surface/60">
               <div className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-3">
                   {theme === 'dark' ? (
@@ -140,7 +141,7 @@ export default function SettingsPage() {
                   )}
                   <span className="text-sm text-foreground">Theme</span>
                 </div>
-                <div className="flex rounded-lg bg-surface-hover p-0.5">
+                <div className="flex rounded-lg bg-background/70 p-0.5">
                   <button
                     onClick={() => handleThemeChange('light')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
@@ -173,7 +174,8 @@ export default function SettingsPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-1">
               Notifications
             </h2>
-            <div className="rounded-xl bg-surface overflow-hidden divide-y divide-divider">
+            <div className="overflow-hidden rounded-2xl bg-surface/60">
+              <div className="mx-4 h-px bg-divider/45" />
               <div className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-3">
                   {pushNotificationsEnabled ? (
@@ -206,7 +208,8 @@ export default function SettingsPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-1">
               Privacy
             </h2>
-            <div className="rounded-xl bg-surface overflow-hidden divide-y divide-divider">
+            <div className="overflow-hidden rounded-2xl bg-surface/60">
+              <div className="mx-4 h-px bg-divider/45" />
               <div className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-3">
                   {showActivityStatus ? (
@@ -239,7 +242,7 @@ export default function SettingsPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-1">
               About
             </h2>
-            <div className="rounded-xl bg-surface overflow-hidden divide-y divide-divider">
+            <div className="overflow-hidden rounded-2xl bg-surface/60">
               <div className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-3">
                   <Info size={18} className="text-muted" />
@@ -247,15 +250,18 @@ export default function SettingsPage() {
                 </div>
                 <span className="text-sm text-muted">1.0.0</span>
               </div>
-              <button className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover transition-colors">
+              <div className="mx-4 h-px bg-divider/45" />
+              <button className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover/70 transition-colors">
                 <span className="text-sm text-foreground">Terms of Service</span>
                 <ChevronRight size={16} className="text-muted" />
               </button>
-              <button className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover transition-colors">
+              <div className="mx-4 h-px bg-divider/45" />
+              <button className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover/70 transition-colors">
                 <span className="text-sm text-foreground">Privacy Policy</span>
                 <ChevronRight size={16} className="text-muted" />
               </button>
-              <button className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover transition-colors">
+              <div className="mx-4 h-px bg-divider/45" />
+              <button className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover/70 transition-colors">
                 <span className="text-sm text-foreground">Contact Support</span>
                 <ChevronRight size={16} className="text-muted" />
               </button>
@@ -267,17 +273,18 @@ export default function SettingsPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-red-500 mb-2 px-1">
               Danger Zone
             </h2>
-            <div className="rounded-xl bg-surface overflow-hidden divide-y divide-divider">
+            <div className="overflow-hidden rounded-2xl bg-red-500/5">
               <button
                 onClick={() => setShowSignOutConfirm(true)}
-                className="flex items-center gap-3 px-4 py-3.5 w-full text-left hover:bg-surface-hover transition-colors"
+                className="flex items-center gap-3 px-4 py-3.5 w-full text-left hover:bg-red-500/10 transition-colors"
               >
                 <LogOut size={18} className="text-red-500" />
                 <span className="text-sm text-red-500 font-medium">Sign Out</span>
               </button>
+              <div className="mx-4 h-px bg-red-500/15" />
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-3 px-4 py-3.5 w-full text-left hover:bg-surface-hover transition-colors"
+                className="flex items-center gap-3 px-4 py-3.5 w-full text-left hover:bg-red-500/10 transition-colors"
               >
                 <Trash2 size={18} className="text-red-500" />
                 <span className="text-sm text-red-500 font-medium">Delete Account</span>
@@ -303,7 +310,7 @@ export default function SettingsPage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] rounded-2xl p-6 w-[280px] text-center shadow-2xl"
-              style={{ backgroundColor: 'var(--color-background, #FFFFFF)', border: '1px solid var(--color-divider, #e5e7eb)' }}
+              style={{ backgroundColor: 'var(--color-background, #FFFFFF)' }}
             >
               <LogOut className="w-8 h-8 text-red-500 mx-auto mb-3" />
               <h3 className="text-[16px] font-bold text-foreground mb-2">Sign Out?</h3>
@@ -343,7 +350,7 @@ export default function SettingsPage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] rounded-2xl p-6 w-[280px] text-center shadow-2xl"
-              style={{ backgroundColor: 'var(--color-background, #FFFFFF)', border: '1px solid var(--color-divider, #e5e7eb)' }}
+              style={{ backgroundColor: 'var(--color-background, #FFFFFF)' }}
             >
               <Trash2 className="w-8 h-8 text-red-500 mx-auto mb-3" />
               <h3 className="text-[16px] font-bold text-foreground mb-2">Delete Account?</h3>

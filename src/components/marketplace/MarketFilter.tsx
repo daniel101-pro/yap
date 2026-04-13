@@ -15,7 +15,8 @@ export default function MarketFilter() {
   const { marketFilter, setMarketFilter } = useStore();
 
   return (
-    <div className="flex gap-1.5 px-5 py-3 overflow-x-auto hide-scrollbar">
+    <div className="px-5">
+      <div className="flex gap-2 overflow-x-auto rounded-2xl bg-surface/70 p-2 hide-scrollbar">
       {categories.map((cat) => {
         const isActive = marketFilter === cat;
         const Icon = cat === 'all' ? ShoppingBag : getCategoryIcon(cat);
@@ -24,16 +25,17 @@ export default function MarketFilter() {
             key={cat}
             whileTap={{ scale: 0.95 }}
             onClick={() => setMarketFilter(cat)}
-            className={`relative flex items-center gap-1.5 px-3.5 py-[7px] rounded-full text-[13px] font-medium whitespace-nowrap transition-all duration-300 ${
+            aria-pressed={isActive}
+            className={`relative flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ${
               isActive
-                ? 'text-white'
-                : 'text-muted hover:text-foreground hover:bg-surface'
+                ? 'text-white shadow-sm'
+                : 'text-muted hover:bg-background/80 hover:text-foreground'
             }`}
           >
             {isActive && (
               <motion.div
                 layoutId="market-pill"
-                className="absolute inset-0 bg-exeter rounded-full"
+                className="absolute inset-0 rounded-full bg-exeter"
                 transition={{ type: 'spring', stiffness: 500, damping: 35 }}
               />
             )}
@@ -44,6 +46,7 @@ export default function MarketFilter() {
           </motion.button>
         );
       })}
+      </div>
     </div>
   );
 }

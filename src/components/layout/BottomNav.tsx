@@ -15,8 +15,8 @@ export default function BottomNav() {
   const { activeTab, setActiveTab, setShowCreateModal } = useStore();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-divider" aria-label="Main navigation">
-      <div className="max-w-2xl mx-auto flex items-center justify-around px-4 pt-1 pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/70 backdrop-blur-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.08)]" aria-label="Main navigation">
+      <div className="mx-auto flex max-w-2xl items-center justify-around px-4 pt-1 pb-[env(safe-area-inset-bottom)]">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const isCreate = tab.id === 'create';
