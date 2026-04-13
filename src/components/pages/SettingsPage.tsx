@@ -45,7 +45,9 @@ function ToggleSwitch({
 export default function SettingsPage() {
   const {
     theme,
+    themePreference,
     setTheme,
+    setThemePreference,
     setShowSettings,
     email,
     logout,
@@ -62,22 +64,11 @@ export default function SettingsPage() {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const handleThemeChange = (newTheme: 'light' | 'dark') => {
-    setTheme(newTheme);
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
-
   const handleSignOut = () => {
-    document.documentElement.classList.remove('dark');
     logout();
   };
 
   const handleDeleteAccount = () => {
-    document.documentElement.classList.remove('dark');
     logout();
   };
 
@@ -143,9 +134,19 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex rounded-lg bg-background/70 p-0.5">
                   <button
-                    onClick={() => handleThemeChange('light')}
+                    onClick={() => setThemePreference('system')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
-                      theme === 'light'
+                      themePreference === 'system'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted hover:text-foreground'
+                    }`}
+                  >
+                    Auto
+                  </button>
+                  <button
+                    onClick={() => setTheme('light')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                      themePreference === 'light'
                         ? 'bg-background text-foreground shadow-sm'
                         : 'text-muted hover:text-foreground'
                     }`}
@@ -154,9 +155,9 @@ export default function SettingsPage() {
                     Light
                   </button>
                   <button
-                    onClick={() => handleThemeChange('dark')}
+                    onClick={() => setTheme('dark')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
-                      theme === 'dark'
+                      themePreference === 'dark'
                         ? 'bg-background text-foreground shadow-sm'
                         : 'text-muted hover:text-foreground'
                     }`}

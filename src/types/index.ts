@@ -115,3 +115,24 @@ export interface Conversation {
   lastMessageTime: Date;
   unread: number;
 }
+
+export interface NightlifeTicket {
+  id: string;
+  title: string;
+  venue: string;
+  price: number;
+  eventDate: Date;
+  sellerName: string;
+  isSold: boolean;
+}
+
+export interface NightlifePin {
+  id: string;
+  name: string;
+  type: 'house-party' | 'nightclub';
+  address: string;
+  mapsQuery: string;
+  lat: number;
+  lng: number;
+  isOpen?: boolean;
+}

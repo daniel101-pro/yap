@@ -1,12 +1,13 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Flame, ShoppingBag, Plus, User } from 'lucide-react';
+import { Flame, ShoppingBag, MoonStar, Plus, User } from 'lucide-react';
 import { useStore } from '@/lib/store';
 
 const tabs = [
   { id: 'feed' as const, icon: Flame, label: 'Feed' },
   { id: 'market' as const, icon: ShoppingBag, label: 'Market' },
+  { id: 'nightlife' as const, icon: MoonStar, label: 'Night' },
   { id: 'create' as const, icon: Plus, label: 'Post' },
   { id: 'profile' as const, icon: User, label: 'Profile' },
 ];

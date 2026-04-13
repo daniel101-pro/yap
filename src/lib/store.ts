@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Post, Listing, Reaction, PostCategory, MarketCategory, Comment, Notification, Conversation, Message } from '@/types';
+import { Post, Listing, Reaction, PostCategory, MarketCategory, Comment, Notification, Conversation, Message, NightlifeTicket, NightlifePin } from '@/types';
 import { mockPosts, mockListings, allMockComments, mockNotifications } from './mock-data';
 
 interface AppState {
@@ -32,6 +32,12 @@ interface AppState {
   savedListings: string[];
   toggleSaveListing: (listingId: string) => void;
 
+  // Nightlife
+  nightlifeTickets: NightlifeTicket[];
+  addNightlifeTicket: (ticket: Omit<NightlifeTicket, 'id' | 'sellerName' | 'isSold'>) => void;
+  nightlifePins: NightlifePin[];
+  addNightlifePin: (pin: Omit<NightlifePin, 'id'>) => void;
+
   // Listing detail
   selectedListing: Listing | null;
   setSelectedListing: (listing: Listing | null) => void;
@@ -54,8 +60,8 @@ interface AppState {
   unreadNotificationCount: () => number;
 
   // UI
-  activeTab: 'feed' | 'market' | 'create' | 'profile';
-  setActiveTab: (tab: 'feed' | 'market' | 'create' | 'profile') => void;
+  activeTab: 'feed' | 'market' | 'nightlife' | 'create' | 'profile';
+  setActiveTab: (tab: 'feed' | 'market' | 'nightlife' | 'create' | 'profile') => void;
   showCreateModal: boolean;
   setShowCreateModal: (show: boolean) => void;
   createMode: 'post' | 'listing';
@@ -73,7 +79,10 @@ interface AppState {
 
   // Theme
   theme: 'light' | 'dark';
+  themePreference: 'system' | 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
+  setThemePreference: (preference: 'system' | 'light' | 'dark') => void;
+  setResolvedTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
 
   // Settings
@@ -251,6 +260,84 @@ export const useStore = create<AppState>((set, get) => ({
         : [...state.savedListings, listingId],
     })),
 
+  nightlifeTickets: [
+    {
+      id: 'nt1',
+      title: '2x TP Friday Guestlist',
+      venue: 'Timepiece',
+      price: 10,
+      eventDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 2),
+      sellerName: 'NightSeller_12',
+      isSold: false,
+    },
+    {
+      id: 'nt2',
+      title: 'Arena Saturday Ticket',
+      venue: 'Arena Exeter',
+      price: 7,
+      eventDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1),
+      sellerName: 'ClubPass_Exe',
+      isSold: false,
+    },
+  ],
+  addNightlifeTicket: (ticket) =>
+    set((state) => ({
+      nightlifeTickets: [
+        {
+          ...ticket,
+          id: `nt${Date.now()}`,
+          sellerName: 'You',
+          isSold: false,
+        },
+        ...state.nightlifeTickets,
+      ],
+    })),
+  nightlifePins: [
+    {
+      id: 'np1',
+      name: 'Timepiece',
+      type: 'nightclub',
+      address: 'Little Castle Street, Exeter EX4 3PX',
+      mapsQuery: 'Timepiece Exeter',
+      lat: 50.7225,
+      lng: -3.5326,
+      isOpen: true,
+    },
+    {
+      id: 'np2',
+      name: 'Arena Exeter',
+      type: 'nightclub',
+      address: '17-18 King William Street, Exeter EX4 6PD',
+      mapsQuery: 'Arena Exeter nightclub',
+      lat: 50.7217,
+      lng: -3.5319,
+      isOpen: true,
+    },
+    {
+      id: 'np3',
+      name: 'Move Exeter',
+      type: 'nightclub',
+      address: '4 The Quay, Exeter EX2 4AP',
+      mapsQuery: 'Move Exeter',
+      lat: 50.7188,
+      lng: -3.5315,
+      isOpen: false,
+    },
+    {
+      id: 'np4',
+      name: 'Pennsylvania House Party',
+      type: 'house-party',
+      address: 'Pennsylvania Road, Exeter',
+      mapsQuery: 'Pennsylvania Road Exeter',
+      lat: 50.7358,
+      lng: -3.5268,
+    },
+  ],
+  addNightlifePin: (pin) =>
+    set((state) => ({
+      nightlifePins: [{ ...pin, id: `np${Date.now()}` }, ...state.nightlifePins],
+    })),
+
   selectedListing: null,
   setSelectedListing: (listing) => set({ selectedListing: listing }),
   selectedSellerId: null,
@@ -357,7 +444,14 @@ export const useStore = create<AppState>((set, get) => ({
   setShowSearch: (show) => set({ showSearch: show, searchQuery: show ? get().searchQuery : '' }),
 
   theme: 'light',
-  setTheme: (theme) => set({ theme }),
+  themePreference: 'system',
+  setTheme: (theme) => set({ theme, themePreference: theme }),
+  setThemePreference: (themePreference) =>
+    set((state) => ({
+      themePreference,
+      theme: themePreference === 'system' ? state.theme : themePreference,
+    })),
+  setResolvedTheme: (theme) => set({ theme }),
   toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
 
   // Settings

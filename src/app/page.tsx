@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '@/lib/store';
 import HeroSection from '@/components/landing/HeroSection';
@@ -8,12 +9,61 @@ import BottomNav from '@/components/layout/BottomNav';
 import CreatePostModal from '@/components/feed/CreatePostModal';
 import FeedPage from '@/components/pages/FeedPage';
 import MarketplacePage from '@/components/pages/MarketplacePage';
+import NightlifePage from '@/components/pages/NightlifePage';
 import ProfilePage from '@/components/pages/ProfilePage';
 import SettingsPage from '@/components/pages/SettingsPage';
 import NotificationsPage from '@/components/pages/NotificationsPage';
 
 export default function Home() {
-  const { isAuthenticated, activeTab, theme, showSettings, showNotifications } = useStore();
+  const {
+    isAuthenticated,
+    activeTab,
+    theme,
+    themePreference,
+    setThemePreference,
+    setResolvedTheme,
+    showSettings,
+    showNotifications,
+  } = useStore();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = window.localStorage.getItem('theme-preference');
+    if (saved === 'light' || saved === 'dark' || saved === 'system') {
+      setThemePreference(saved);
+      if (saved === 'light' || saved === 'dark') {
+        setResolvedTheme(saved);
+      }
+    }
+  }, [setResolvedTheme, setThemePreference]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('theme-preference', themePreference);
+  }, [themePreference]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const applySystemTheme = () => setResolvedTheme(media.matches ? 'dark' : 'light');
+
+    if (themePreference === 'system') {
+      applySystemTheme();
+      const onChange = () => applySystemTheme();
+      media.addEventListener('change', onChange);
+      return () => media.removeEventListener('change', onChange);
+    }
+  }, [themePreference, setResolvedTheme]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   if (!isAuthenticated) {
     return (
@@ -65,6 +115,17 @@ export default function Home() {
               transition={{ duration: 0.2 }}
             >
               <MarketplacePage />
+            </motion.div>
+          )}
+          {activeTab === 'nightlife' && (
+            <motion.div
+              key="nightlife"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <NightlifePage />
             </motion.div>
           )}
           {activeTab === 'profile' && (

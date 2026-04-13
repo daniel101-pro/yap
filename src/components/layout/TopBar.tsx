@@ -18,7 +18,13 @@ export default function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const title = activeTab === 'feed' ? null : activeTab === 'market' ? 'Market' : 'Profile';
+  const title = activeTab === 'feed'
+    ? null
+    : activeTab === 'market'
+      ? 'Market'
+      : activeTab === 'nightlife'
+        ? 'Nightlife'
+        : 'Profile';
 
   useEffect(() => {
     if (showSearch && inputRef.current) {
@@ -44,7 +50,15 @@ export default function TopBar() {
                 ref={inputRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={activeTab === 'feed' ? 'Search yaps...' : activeTab === 'market' ? 'Search listings...' : 'Search...'}
+                placeholder={
+                  activeTab === 'feed'
+                    ? 'Search yaps...'
+                    : activeTab === 'market'
+                      ? 'Search listings...'
+                      : activeTab === 'nightlife'
+                        ? 'Search tickets and venues...'
+                        : 'Search...'
+                }
                 className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-light focus:outline-none"
               />
               <button
@@ -70,7 +84,7 @@ export default function TopBar() {
               </motion.div>
 
               <div className="flex items-center gap-1">
-                {(activeTab === 'feed' || activeTab === 'market') && (
+                {(activeTab === 'feed' || activeTab === 'market' || activeTab === 'nightlife') && (
                   <motion.button
                     whileTap={{ scale: 0.92 }}
                     onClick={() => setShowSearch(true)}
