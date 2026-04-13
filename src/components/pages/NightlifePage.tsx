@@ -22,6 +22,7 @@ export default function NightlifePage() {
   const [partyAddress, setPartyAddress] = useState('');
   const [selectedPoint, setSelectedPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [formError, setFormError] = useState('');
+  const [isAddingParty, setIsAddingParty] = useState(false);
 
   const sortedTickets = useMemo(
     () => [...nightlifeTickets].sort((a, b) => +new Date(a.eventDate) - +new Date(b.eventDate)),
@@ -59,12 +60,14 @@ export default function NightlifePage() {
     setShowTicketForm(false);
   };
 
-  const handleAddHouseParty = (e: FormEvent) => {
+  const handleAddHouseParty = async (e: FormEvent) => {
     e.preventDefault();
+    setFormError('');
     if (!partyName.trim() || !partyAddress.trim()) {
       setFormError('Add party name and address.');
       return;
     }
+    setIsAddingParty(true);
 
     const submitWithCoords = (lat: number, lng: number) => {
       addNightlifePin({
@@ -79,24 +82,29 @@ export default function NightlifePage() {
       setPartyAddress('');
       setSelectedPoint(null);
       setShowPartyForm(false);
-      setFormError('');
     };
 
     if (selectedPoint) {
       submitWithCoords(selectedPoint.lat, selectedPoint.lng);
+      setIsAddingParty(false);
       return;
     }
 
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(`${partyAddress} Exeter`)}`)
-      .then((res) => res.json())
-      .then((rows: Array<{ lat: string; lon: string }>) => {
-        if (!rows[0]) {
-          setFormError('Could not locate that address. Tap map to drop pin manually.');
-          return;
-        }
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(`${partyAddress} Exeter`)}`);
+      const rows = (await res.json()) as Array<{ lat: string; lon: string }>;
+      if (rows[0]) {
         submitWithCoords(Number(rows[0].lat), Number(rows[0].lon));
-      })
-      .catch(() => setFormError('Address lookup failed. Tap map to drop pin manually.'));
+      } else {
+        // Fallback so the button always works even if geocoding fails.
+        submitWithCoords(50.726, -3.53);
+      }
+    } catch {
+      // Fallback to Exeter center if lookup is blocked/rate-limited.
+      submitWithCoords(50.726, -3.53);
+    } finally {
+      setIsAddingParty(false);
+    }
   };
 
   return (
@@ -201,9 +209,42 @@ export default function NightlifePage() {
               className="inline-flex items-center gap-1.5 rounded-xl bg-exeter px-3 py-2 text-xs font-semibold text-white"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add House Party
+              {showPartyForm ? 'Close Form' : 'Add House Party'}
             </button>
           </div>
+
+          {showPartyForm && (
+            <form onSubmit={handleAddHouseParty} className="mb-3 space-y-2 rounded-2xl bg-surface/55 p-3">
+              <p className="text-xs text-muted">Tap map for exact pin, or we place it from address.</p>
+              <input
+                value={partyName}
+                onChange={(e) => setPartyName(e.target.value)}
+                placeholder="Party name"
+                required
+                className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
+              />
+              <input
+                value={partyAddress}
+                onChange={(e) => setPartyAddress(e.target.value)}
+                placeholder="Address or area in Exeter"
+                required
+                className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
+              />
+              {selectedPoint && (
+                <p className="text-[11px] text-exeter">
+                  Pin selected at {selectedPoint.lat.toFixed(4)}, {selectedPoint.lng.toFixed(4)}
+                </p>
+              )}
+              {formError && <p className="text-[11px] text-red-500">{formError}</p>}
+              <button
+                type="submit"
+                disabled={isAddingParty}
+                className="w-full rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background disabled:opacity-60"
+              >
+                {isAddingParty ? 'Saving...' : 'Save Party Pin'}
+              </button>
+            </form>
+          )}
 
           <div className="relative h-[420px] overflow-hidden rounded-3xl bg-surface">
             <NightlifeMap pins={mappablePins} draftPin={selectedPoint} onMapClick={setSelectedPoint} />
@@ -267,32 +308,6 @@ export default function NightlifePage() {
             </div>
           </div>
 
-          {showPartyForm && (
-            <form onSubmit={handleAddHouseParty} className="mt-3 space-y-2 rounded-2xl bg-surface/55 p-3">
-              <p className="text-xs text-muted">Tap map to drop exact pin, or we geocode from address.</p>
-              <input
-                value={partyName}
-                onChange={(e) => setPartyName(e.target.value)}
-                placeholder="Party name"
-                className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
-              />
-              <input
-                value={partyAddress}
-                onChange={(e) => setPartyAddress(e.target.value)}
-                placeholder="Address or area in Exeter"
-                className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
-              />
-              {selectedPoint && (
-                <p className="text-[11px] text-exeter">
-                  Pin selected at {selectedPoint.lat.toFixed(4)}, {selectedPoint.lng.toFixed(4)}
-                </p>
-              )}
-              {formError && <p className="text-[11px] text-red-500">{formError}</p>}
-              <button type="submit" className="w-full rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background">
-                Save Party Pin
-              </button>
-            </form>
-          )}
         </section>
       )}
     </motion.div>
