@@ -3,6 +3,13 @@ import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
 import { serializeConversation } from '@/lib/serializers-messages';
 
+const conversationInclude = {
+  listing: { select: { title: true } },
+  buyer: true,
+  seller: true,
+  messages: { orderBy: { createdAt: 'asc' as const }, include: { sender: true } },
+};
+
 export async function GET() {
   const user = await getSessionUser();
   if (!user?.id) {
@@ -14,16 +21,7 @@ export async function GET() {
       OR: [{ buyerId: user.id }, { sellerId: user.id }],
     },
     orderBy: { lastMessageAt: 'desc' },
-    include: {
-      listing: { select: { title: true } },
-      buyer: true,
-      seller: true,
-      messages: {
-        orderBy: { createdAt: 'asc' },
-        take: 50,
-        include: { sender: true },
-      },
-    },
+    include: conversationInclude,
   });
 
   return NextResponse.json({
@@ -59,62 +57,57 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Cannot message your own listing' }, { status: 400 });
   }
 
-  let conversation = await prisma.conversation.findUnique({
+  const existing = await prisma.conversation.findUnique({
     where: { listingId_buyerId: { listingId, buyerId: user.id } },
-    include: {
-      listing: { select: { title: true } },
-      buyer: true,
-      seller: true,
-      messages: { orderBy: { createdAt: 'asc' }, include: { sender: true } },
-    },
+    include: conversationInclude,
   });
 
-  if (!conversation) {
-    conversation = await prisma.conversation.create({
+  if (existing) {
+    return NextResponse.json({
+      conversation: serializeConversation(existing, user.id),
+    });
+  }
+
+  const created = await prisma.conversation.create({
+    data: {
+      listingId,
+      buyerId: user.id,
+      sellerId: listing.sellerId,
+      lastMessage: initialMessage || '',
+      lastMessageAt: new Date(),
+    },
+    include: conversationInclude,
+  });
+
+  if (initialMessage) {
+    await prisma.message.create({
       data: {
-        listingId,
-        buyerId: user.id,
-        sellerId: listing.sellerId,
-        lastMessage: initialMessage || '',
-        lastMessageAt: new Date(),
-      },
-      include: {
-        listing: { select: { title: true } },
-        buyer: true,
-        seller: true,
-        messages: { include: { sender: true } },
+        conversationId: created.id,
+        senderId: user.id,
+        content: initialMessage,
       },
     });
 
-    if (initialMessage) {
-      await prisma.message.create({
-        data: {
-          conversationId: conversation.id,
-          senderId: user.id,
-          content: initialMessage,
-        },
-      });
+    await prisma.notification.create({
+      data: {
+        userId: listing.sellerId,
+        type: 'comment',
+        title: 'New message',
+        body: `Someone asked about "${listing.title}"`,
+        listingId: listing.id,
+      },
+    });
+  }
 
-      await prisma.notification.create({
-        data: {
-          userId: listing.sellerId,
-          type: 'comment',
-          title: 'New message',
-          body: `Someone asked about "${listing.title}"`,
-          listingId: listing.id,
-        },
-      });
+  const conversation = initialMessage
+    ? await prisma.conversation.findUnique({
+        where: { id: created.id },
+        include: conversationInclude,
+      })
+    : created;
 
-      conversation = await prisma.conversation.findUnique({
-        where: { id: conversation.id },
-        include: {
-          listing: { select: { title: true } },
-          buyer: true,
-          seller: true,
-          messages: { orderBy: { createdAt: 'asc' }, include: { sender: true } },
-        },
-      })!;
-    }
+  if (!conversation) {
+    return NextResponse.json({ error: 'Conversation not found' }, { status: 500 });
   }
 
   return NextResponse.json({
