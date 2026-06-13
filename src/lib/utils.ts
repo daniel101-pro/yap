@@ -1,3 +1,18 @@
+export function formatEventDate(date: Date): string {
+  return date.toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+export function formatEventTime(date: Date): string {
+  return date.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function timeAgo(date: Date): string {
   const now = Date.now();
   const diff = now - date.getTime();

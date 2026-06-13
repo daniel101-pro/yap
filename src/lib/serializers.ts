@@ -81,10 +81,14 @@ export function serializeComment(
 }
 
 export function serializeListing(
-  listing: DbListing & { seller: User; _count?: { saves: number } },
+  listing: DbListing & {
+    seller: User & { _count?: { listings: number } };
+    _count?: { saves: number };
+  },
   userId?: string,
 ): Listing {
   const sellerName = listing.seller.anonymousHandle ?? 'Anonymous';
+  const totalSales = listing.seller._count?.listings ?? 0;
   return {
     id: listing.id,
     title: listing.title,
@@ -102,7 +106,7 @@ export function serializeListing(
       id: listing.seller.id,
       name: sellerName,
       rating: 5,
-      totalSales: 0,
+      totalSales,
       joinDate: listing.seller.createdAt,
     },
     reviews: [],

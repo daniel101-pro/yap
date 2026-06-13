@@ -7,6 +7,7 @@ import { Post, Reaction } from '@/types';
 import { useStore } from '@/lib/store';
 import { timeAgo, getCategoryLabel, formatNumber } from '@/lib/utils';
 import { getCategoryIcon } from '@/lib/icons';
+import { usePostTrending } from '@/hooks/useFeedRanking';
 import ReactionButton from '@/components/ui/ReactionButton';
 import PollCard from './PollCard';
 import CommentSheet from './CommentSheet';
@@ -18,8 +19,10 @@ interface PostCardProps {
 
 const reactions: Reaction[] = ['fire', 'cap', 'dead', 'real', 'sus'];
 
-export default function PostCard({ post, index }: PostCardProps) {
-  const { reactToPost } = useStore();
+export default function PostCard({ post: initialPost, index }: PostCardProps) {
+  const post = useStore((s) => s.posts.find((p) => p.id === initialPost.id) ?? initialPost);
+  const reactToPost = useStore((s) => s.reactToPost);
+  const isTrending = usePostTrending(initialPost.id);
   const totalReactions = Object.values(post.reactions).reduce((a, b) => a + b, 0);
   const CategoryIcon = getCategoryIcon(post.category);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
@@ -38,6 +41,7 @@ export default function PostCard({ post, index }: PostCardProps) {
   return (
     <>
       <motion.article
+        id={`post-${post.id}`}
         initial={{ opacity: 0, y: 16, filter: 'blur(4px)' }}
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         transition={{
@@ -57,6 +61,11 @@ export default function PostCard({ post, index }: PostCardProps) {
             <span className="text-[12px] font-semibold text-exeter tracking-[0.04em] uppercase">
               {getCategoryLabel(post.category)}
             </span>
+            {isTrending && (
+              <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-500">
+                Trending
+              </span>
+            )}
           </div>
           <time className="text-[12px] text-muted-light">{timeAgo(post.timestamp)}</time>
         </div>

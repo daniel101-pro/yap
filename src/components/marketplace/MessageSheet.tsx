@@ -12,7 +12,7 @@ interface MessageSheetProps {
 }
 
 export default function MessageSheet({ conversationId, onClose }: MessageSheetProps) {
-  const { conversations, sendMessage } = useStore();
+  const { conversations, sendMessage, syncFromServer } = useStore();
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -26,6 +26,11 @@ export default function MessageSheet({ conversationId, onClose }: MessageSheetPr
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => syncFromServer(), 8000);
+    return () => clearInterval(interval);
+  }, [syncFromServer]);
 
   if (!conversation) return null;
 

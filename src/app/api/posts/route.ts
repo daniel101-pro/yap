@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   const category = body.category as PostCategory;
   const media = Array.isArray(body.media) ? body.media : [];
 
-  if (!content && !body.poll) {
+  if (!content && !body.poll && media.length === 0) {
     return NextResponse.json({ error: 'Content required' }, { status: 400 });
   }
 

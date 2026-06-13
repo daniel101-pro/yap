@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Eye, Heart, Star, MessageCircle, User } from 'lucide-react';
 import { Listing } from '@/types';
@@ -32,7 +32,7 @@ function StarRating({ rating, size = 14 }: { rating: number; size?: number }) {
 }
 
 export default function ProductDetail({ listing, onBack, onViewSeller }: ProductDetailProps) {
-  const { savedListings, toggleSaveListing, startConversation, activeConversation, setActiveConversation } = useStore();
+  const { savedListings, toggleSaveListing, startConversation, activeConversation, setActiveConversation, recordListingView } = useStore();
   const [activeImage, setActiveImage] = useState(0);
   const [showMessage, setShowMessage] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -40,6 +40,10 @@ export default function ProductDetail({ listing, onBack, onViewSeller }: Product
   const isSaved = savedListings.includes(listing.id);
 
   const hasImages = listing.images.length > 0;
+
+  useEffect(() => {
+    recordListingView(listing.id);
+  }, [listing.id, recordListingView]);
 
   const handleScroll = () => {
     if (!scrollRef.current) return;
@@ -169,7 +173,7 @@ export default function ProductDetail({ listing, onBack, onViewSeller }: Product
           </span>
           <span className="flex items-center gap-1.5">
             <Heart size={14} />
-            {listing.saved + (isSaved ? 1 : 0)}
+            {listing.saved}
           </span>
           <span>{timeAgo(listing.timestamp)}</span>
         </motion.div>

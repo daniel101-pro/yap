@@ -27,27 +27,46 @@ function NotificationIcon({ type }: { type: Notification['type'] }) {
 export default function NotificationsPage() {
   const {
     notifications,
+    listings,
+    conversations,
     setShowNotifications,
     markNotificationRead,
     markAllNotificationsRead,
     setSelectedPostId,
+    setSelectedListing,
     setActiveTab,
+    setActiveConversation,
   } = useStore();
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleNotificationClick = (notification: Notification) => {
     markNotificationRead(notification.id);
+    setShowNotifications(false);
+
     if (notification.postId) {
-      setShowNotifications(false);
       setActiveTab('feed');
       setSelectedPostId(notification.postId);
+      return;
+    }
+
+    if (notification.listingId) {
+      const listing = listings.find((l) => l.id === notification.listingId);
+      setActiveTab('market');
+      if (listing) {
+        setSelectedListing(listing);
+        return;
+      }
+      const conv = conversations.find((c) => c.listingId === notification.listingId);
+      if (conv) {
+        setActiveTab('profile');
+        setActiveConversation(conv.id);
+      }
     }
   };
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
-      {/* Header */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-divider">
         <div className="flex items-center justify-between h-14 px-4 max-w-2xl mx-auto">
           <button

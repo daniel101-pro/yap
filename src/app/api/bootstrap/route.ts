@@ -11,6 +11,15 @@ import {
 import { serializeConversation } from '@/lib/serializers-messages';
 import { seedDatabaseIfEmpty } from '@/lib/seed';
 
+const sellerInclude = {
+  seller: {
+    include: {
+      _count: { select: { listings: { where: { isSold: true } } } },
+    },
+  },
+  _count: { select: { saves: true } },
+};
+
 export async function GET() {
   const user = await getSessionUser();
   if (!user?.id) {
@@ -21,9 +30,16 @@ export async function GET() {
 
   const userId = user.id;
 
-  const [posts, listings, nightlifeTickets, nightlifePins, notifications, saves, conversations] =
+  const [dbUser, posts, listings, nightlifeTickets, nightlifePins, notifications, saves, conversations] =
     await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, anonymousHandle: true, karma: true },
+      }),
       prisma.post.findMany({
+        where: {
+          author: { email: { not: { startsWith: 'seed-' } } },
+        },
         orderBy: { createdAt: 'desc' },
         include: {
           reactions: true,
@@ -33,17 +49,15 @@ export async function GET() {
       }),
       prisma.listing.findMany({
         where: {
-          seller: {
-            email: { not: { startsWith: 'seed-' } },
-          },
+          seller: { email: { not: { startsWith: 'seed-' } } },
         },
         orderBy: { createdAt: 'desc' },
-        include: {
-          seller: true,
-          _count: { select: { saves: true } },
-        },
+        include: sellerInclude,
       }),
       prisma.nightlifeTicket.findMany({
+        where: {
+          seller: { email: { not: { startsWith: 'seed-' } } },
+        },
         orderBy: { eventDate: 'asc' },
         include: { seller: true },
       }),
@@ -70,6 +84,14 @@ export async function GET() {
     ]);
 
   return NextResponse.json({
+    user: dbUser
+      ? {
+          id: dbUser.id,
+          email: dbUser.email,
+          anonymousHandle: dbUser.anonymousHandle ?? 'Anonymous',
+          karma: dbUser.karma,
+        }
+      : { id: userId, email: user.email ?? '', anonymousHandle: 'Anonymous', karma: 0 },
     posts: posts.map((p) => serializePost(p, userId)),
     listings: listings.map((l) => serializeListing(l, userId)),
     nightlifeTickets: nightlifeTickets.map((t) => serializeTicket(t)),

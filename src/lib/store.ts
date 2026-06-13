@@ -13,8 +13,17 @@ import {
   NightlifePin,
 } from '@/types';
 import { api } from '@/lib/api';
+import { applyOptimisticReaction } from '@/lib/optimistic';
+
+interface UserProfile {
+  id: string;
+  email: string;
+  anonymousHandle: string;
+  karma: number;
+}
 
 interface BootstrapData {
+  user: UserProfile;
   posts: Post[];
   listings: Listing[];
   nightlifeTickets: NightlifeTicket[];
@@ -22,6 +31,20 @@ interface BootstrapData {
   notifications: Notification[];
   savedListingIds: string[];
   conversations: Conversation[];
+}
+
+function persistSetting(key: string, value: boolean) {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(key, value ? '1' : '0');
+  }
+}
+
+function readSetting(key: string, fallback: boolean) {
+  if (typeof window === 'undefined') return fallback;
+  const v = window.localStorage.getItem(key);
+  if (v === '1') return true;
+  if (v === '0') return false;
+  return fallback;
 }
 
 function normalizeConversation(c: Conversation): Conversation {
@@ -35,7 +58,13 @@ function normalizeConversation(c: Conversation): Conversation {
 interface AppState {
   isHydrated: boolean;
   isHydrating: boolean;
+  hydrationError: string | null;
   hydrateFromServer: () => Promise<void>;
+  syncFromServer: () => Promise<void>;
+
+  userProfile: UserProfile | null;
+  loadLocalPreferences: () => void;
+  deleteAccount: () => Promise<void>;
 
   posts: Post[];
   feedFilter: PostCategory | 'all';
@@ -48,7 +77,7 @@ interface AppState {
   comments: Record<string, Comment[]>;
   fetchComments: (postId: string) => Promise<void>;
   addComment: (postId: string, content: string, parentCommentId?: string) => Promise<void>;
-  upvoteComment: (postId: string, commentId: string) => void;
+  upvoteComment: (postId: string, commentId: string) => Promise<void>;
 
   listings: Listing[];
   marketFilter: MarketCategory | 'all';
@@ -63,6 +92,7 @@ interface AppState {
   toggleSaveListing: (listingId: string) => Promise<void>;
   deleteListing: (listingId: string) => Promise<void>;
   updateListingSold: (listingId: string, isSold: boolean) => Promise<void>;
+  recordListingView: (listingId: string) => Promise<void>;
 
   nightlifeTickets: NightlifeTicket[];
   addNightlifeTicket: (ticket: Omit<NightlifeTicket, 'id' | 'sellerName' | 'isSold'>) => Promise<void>;
@@ -125,12 +155,29 @@ interface AppState {
 export const useStore = create<AppState>((set, get) => ({
   isHydrated: false,
   isHydrating: false,
+  hydrationError: null,
+  userProfile: null,
+
+  loadLocalPreferences: () => {
+    set({
+      pushNotificationsEnabled: readSetting('yap-push-notifications', true),
+      emailNotificationsEnabled: readSetting('yap-email-notifications', true),
+      showActivityStatus: readSetting('yap-show-activity', true),
+      anonymousByDefault: readSetting('yap-anonymous-default', true),
+    });
+  },
+
+  deleteAccount: async () => {
+    await api('/api/user', { method: 'DELETE' });
+  },
+
   hydrateFromServer: async () => {
     if (get().isHydrating) return;
-    set({ isHydrating: true });
+    set({ isHydrating: true, hydrationError: null });
     try {
       const data = await api<BootstrapData>('/api/bootstrap');
       set({
+        userProfile: data.user,
         posts: data.posts.map((p) => ({ ...p, timestamp: new Date(p.timestamp) })),
         listings: data.listings.map((l) => ({ ...l, timestamp: new Date(l.timestamp) })),
         nightlifeTickets: data.nightlifeTickets.map((t) => ({
@@ -143,9 +190,49 @@ export const useStore = create<AppState>((set, get) => ({
         conversations: data.conversations.map(normalizeConversation),
         isHydrated: true,
         isHydrating: false,
+        hydrationError: null,
+      });
+    } catch (err) {
+      set({
+        isHydrating: false,
+        hydrationError: err instanceof Error ? err.message : 'Could not load your data',
+      });
+    }
+  },
+
+  syncFromServer: async () => {
+    if (!get().isHydrated || get().isHydrating) return;
+    try {
+      const data = await api<BootstrapData>('/api/bootstrap');
+      set((state) => {
+        const listings = data.listings.map((l) => ({ ...l, timestamp: new Date(l.timestamp) }));
+        const selectedId = state.selectedListing?.id;
+        const freshSelected = selectedId
+          ? listings.find((l) => l.id === selectedId)
+          : null;
+
+        return {
+          userProfile: data.user,
+          posts: data.posts.map((p) => ({ ...p, timestamp: new Date(p.timestamp) })),
+          listings,
+          nightlifeTickets: data.nightlifeTickets.map((t) => ({
+            ...t,
+            eventDate: new Date(t.eventDate),
+          })),
+          nightlifePins: data.nightlifePins,
+          notifications: data.notifications.map((n) => ({
+            ...n,
+            timestamp: new Date(n.timestamp),
+          })),
+          savedListings: data.savedListingIds,
+          conversations: data.conversations.map(normalizeConversation),
+          selectedListing: freshSelected
+            ? { ...freshSelected, timestamp: new Date(freshSelected.timestamp) }
+            : state.selectedListing,
+        };
       });
     } catch {
-      set({ isHydrating: false });
+      // background sync — fail silently
     }
   },
 
@@ -153,15 +240,28 @@ export const useStore = create<AppState>((set, get) => ({
   feedFilter: 'all',
   setFeedFilter: (filter) => set({ feedFilter: filter }),
   reactToPost: async (postId, reaction) => {
-    const { post } = await api<{ post: Post }>(`/api/posts/${postId}/react`, {
-      method: 'POST',
-      body: JSON.stringify({ reaction }),
+    const prevPosts = get().posts;
+    const current = prevPosts.find((p) => p.id === postId);
+    if (!current) return;
+
+    const optimistic = applyOptimisticReaction(current, reaction);
+    set({
+      posts: prevPosts.map((p) => (p.id === postId ? optimistic : p)),
     });
-    set((state) => ({
-      posts: state.posts.map((p) =>
-        p.id === postId ? { ...post, timestamp: new Date(post.timestamp) } : p,
-      ),
-    }));
+
+    try {
+      const { post } = await api<{ post: Post }>(`/api/posts/${postId}/react`, {
+        method: 'POST',
+        body: JSON.stringify({ reaction }),
+      });
+      set((state) => ({
+        posts: state.posts.map((p) =>
+          p.id === postId ? { ...post, timestamp: new Date(post.timestamp) } : p,
+        ),
+      }));
+    } catch {
+      set({ posts: prevPosts });
+    }
   },
   addPost: async (content, category, media = []) => {
     const { post } = await api<{ post: Post }>('/api/posts', {
@@ -184,15 +284,37 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
   voteOnPoll: async (postId, optionId) => {
-    const { post } = await api<{ post: Post }>(`/api/posts/${postId}/vote`, {
-      method: 'POST',
-      body: JSON.stringify({ optionId }),
-    });
-    set((state) => ({
-      posts: state.posts.map((p) =>
-        p.id === postId ? { ...post, timestamp: new Date(post.timestamp) } : p,
+    const prevPosts = get().posts;
+    const current = prevPosts.find((p) => p.id === postId);
+    if (!current?.poll || current.poll.userVote !== undefined) return;
+
+    const optimisticPoll = {
+      ...current.poll,
+      userVote: optionId,
+      totalVotes: current.poll.totalVotes + 1,
+      options: current.poll.options.map((o) =>
+        o.id === optionId ? { ...o, votes: o.votes + 1 } : o,
       ),
-    }));
+    };
+    set({
+      posts: prevPosts.map((p) =>
+        p.id === postId ? { ...p, poll: optimisticPoll } : p,
+      ),
+    });
+
+    try {
+      const { post } = await api<{ post: Post }>(`/api/posts/${postId}/vote`, {
+        method: 'POST',
+        body: JSON.stringify({ optionId }),
+      });
+      set((state) => ({
+        posts: state.posts.map((p) =>
+          p.id === postId ? { ...post, timestamp: new Date(post.timestamp) } : p,
+        ),
+      }));
+    } catch {
+      set({ posts: prevPosts });
+    }
   },
 
   comments: {},
@@ -210,14 +332,15 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
   addComment: async (postId, content, parentCommentId) => {
-    const { comment } = await api<{ comment: Comment }>(`/api/posts/${postId}/comments`, {
-      method: 'POST',
-      body: JSON.stringify({ content, parentId: parentCommentId }),
-    });
-    const normalized = {
-      ...comment,
-      timestamp: new Date(comment.timestamp),
-      replies: comment.replies.map((r) => ({ ...r, timestamp: new Date(r.timestamp) })),
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: Comment = {
+      id: tempId,
+      postId,
+      content,
+      timestamp: new Date(),
+      upvotes: 0,
+      replies: [],
+      isOP: false,
     };
 
     set((state) => {
@@ -226,7 +349,7 @@ export const useStore = create<AppState>((set, get) => ({
         const addReply = (comments: Comment[]): Comment[] =>
           comments.map((c) => {
             if (c.id === parentCommentId) {
-              return { ...c, replies: [...c.replies, normalized] };
+              return { ...c, replies: [...c.replies, optimistic] };
             }
             return { ...c, replies: addReply(c.replies) };
           });
@@ -238,27 +361,96 @@ export const useStore = create<AppState>((set, get) => ({
         };
       }
       return {
-        comments: { ...state.comments, [postId]: [normalized, ...postComments] },
+        comments: { ...state.comments, [postId]: [optimistic, ...postComments] },
         posts: state.posts.map((p) =>
           p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p,
         ),
       };
     });
-  },
-  upvoteComment: (postId, commentId) =>
-    set((state) => {
-      const upvoteInList = (comments: Comment[]): Comment[] =>
-        comments.map((c) => {
-          if (c.id === commentId) return { ...c, upvotes: c.upvotes + 1 };
-          return { ...c, replies: upvoteInList(c.replies) };
-        });
-      return {
-        comments: {
-          ...state.comments,
-          [postId]: upvoteInList(state.comments[postId] || []),
-        },
+
+    try {
+      const { comment } = await api<{ comment: Comment }>(`/api/posts/${postId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ content, parentId: parentCommentId }),
+      });
+      const normalized = {
+        ...comment,
+        timestamp: new Date(comment.timestamp),
+        replies: comment.replies.map((r) => ({ ...r, timestamp: new Date(r.timestamp) })),
       };
-    }),
+
+      set((state) => {
+        const replaceTemp = (comments: Comment[]): Comment[] =>
+          comments.map((c) => {
+            if (c.id === tempId) return normalized;
+            return { ...c, replies: replaceTemp(c.replies) };
+          });
+
+        const postComments = state.comments[postId] ?? [];
+        if (parentCommentId) {
+          const updateReplies = (comments: Comment[]): Comment[] =>
+            comments.map((c) => {
+              if (c.id === parentCommentId) {
+                return {
+                  ...c,
+                  replies: c.replies.map((r) => (r.id === tempId ? normalized : r)),
+                };
+              }
+              return { ...c, replies: updateReplies(c.replies) };
+            });
+          return {
+            comments: { ...state.comments, [postId]: updateReplies(postComments) },
+          };
+        }
+        return {
+          comments: {
+            ...state.comments,
+            [postId]: replaceTemp(postComments),
+          },
+        };
+      });
+    } catch {
+      set((state) => {
+        const removeTemp = (comments: Comment[]): Comment[] =>
+          comments
+            .filter((c) => c.id !== tempId)
+            .map((c) => ({ ...c, replies: removeTemp(c.replies) }));
+
+        return {
+          comments: {
+            ...state.comments,
+            [postId]: removeTemp(state.comments[postId] ?? []),
+          },
+          posts: state.posts.map((p) =>
+            p.id === postId ? { ...p, commentCount: Math.max(0, p.commentCount - 1) } : p,
+          ),
+        };
+      });
+      throw new Error('Could not post comment');
+    }
+  },
+  upvoteComment: async (postId, commentId) => {
+    const { comment } = await api<{ comment: Comment }>(
+      `/api/comments/${commentId}/upvote`,
+      { method: 'POST' },
+    );
+    const normalized = {
+      ...comment,
+      timestamp: new Date(comment.timestamp),
+      replies: comment.replies.map((r) => ({ ...r, timestamp: new Date(r.timestamp) })),
+    };
+    const updateInList = (comments: Comment[]): Comment[] =>
+      comments.map((c) => {
+        if (c.id === commentId) return normalized;
+        return { ...c, replies: updateInList(c.replies) };
+      });
+    set((state) => ({
+      comments: {
+        ...state.comments,
+        [postId]: updateInList(state.comments[postId] ?? []),
+      },
+    }));
+  },
 
   listings: [],
   marketFilter: 'all',
@@ -274,18 +466,34 @@ export const useStore = create<AppState>((set, get) => ({
   },
   savedListings: [],
   toggleSaveListing: async (listingId) => {
-    const { listing, saved } = await api<{ listing: Listing; saved: boolean }>(
-      `/api/listings/${listingId}/save`,
-      { method: 'POST' },
-    );
+    const wasSaved = get().savedListings.includes(listingId);
+    const prevListings = get().listings;
+
     set((state) => ({
-      savedListings: saved
-        ? [...state.savedListings, listingId]
-        : state.savedListings.filter((id) => id !== listingId),
+      savedListings: wasSaved
+        ? state.savedListings.filter((id) => id !== listingId)
+        : [...state.savedListings, listingId],
       listings: state.listings.map((l) =>
-        l.id === listingId ? { ...listing, timestamp: new Date(listing.timestamp) } : l,
+        l.id === listingId ? { ...l, saved: Math.max(0, l.saved + (wasSaved ? -1 : 1)) } : l,
       ),
     }));
+
+    try {
+      const { listing, saved } = await api<{ listing: Listing; saved: boolean }>(
+        `/api/listings/${listingId}/save`,
+        { method: 'POST' },
+      );
+      set((state) => ({
+        savedListings: saved
+          ? [...new Set([...state.savedListings, listingId])]
+          : state.savedListings.filter((id) => id !== listingId),
+        listings: state.listings.map((l) =>
+          l.id === listingId ? { ...listing, timestamp: new Date(listing.timestamp) } : l,
+        ),
+      }));
+    } catch {
+      set({ savedListings: get().savedListings, listings: prevListings });
+    }
   },
   deleteListing: async (listingId) => {
     await api(`/api/listings/${listingId}`, { method: 'DELETE' });
@@ -311,6 +519,24 @@ export const useStore = create<AppState>((set, get) => ({
           ? { ...listing, timestamp: new Date(listing.timestamp) }
           : state.selectedListing,
     }));
+  },
+  recordListingView: async (listingId) => {
+    try {
+      const { listing } = await api<{ listing: Listing }>(`/api/listings/${listingId}/view`, {
+        method: 'POST',
+      });
+      set((state) => ({
+        listings: state.listings.map((l) =>
+          l.id === listingId ? { ...listing, timestamp: new Date(listing.timestamp) } : l,
+        ),
+        selectedListing:
+          state.selectedListing?.id === listingId
+            ? { ...listing, timestamp: new Date(listing.timestamp) }
+            : state.selectedListing,
+      }));
+    } catch {
+      // non-critical
+    }
   },
 
   nightlifeTickets: [],
@@ -346,22 +572,57 @@ export const useStore = create<AppState>((set, get) => ({
   activeConversation: null,
   setActiveConversation: (id) => set({ activeConversation: id }),
   sendMessage: async (conversationId, content) => {
-    const { message } = await api<{ message: Message }>(
-      `/api/conversations/${conversationId}/messages`,
-      { method: 'POST', body: JSON.stringify({ content }) },
-    );
-    const normalized = { ...message, timestamp: new Date(message.timestamp) };
+    const tempId = `temp-msg-${Date.now()}`;
+    const optimistic: Message = {
+      id: tempId,
+      senderId: 'self',
+      senderName: 'You',
+      content,
+      timestamp: new Date(),
+      isOwn: true,
+    };
+
     set((state) => ({
       conversations: state.conversations.map((conv) => {
         if (conv.id !== conversationId) return conv;
         return {
           ...conv,
-          messages: [...conv.messages, normalized],
+          messages: [...conv.messages, optimistic],
           lastMessage: content,
           lastMessageTime: new Date(),
         };
       }),
     }));
+
+    try {
+      const { message } = await api<{ message: Message }>(
+        `/api/conversations/${conversationId}/messages`,
+        { method: 'POST', body: JSON.stringify({ content }) },
+      );
+      const normalized = { ...message, timestamp: new Date(message.timestamp) };
+      set((state) => ({
+        conversations: state.conversations.map((conv) => {
+          if (conv.id !== conversationId) return conv;
+          return {
+            ...conv,
+            messages: conv.messages.map((m) => (m.id === tempId ? normalized : m)),
+            lastMessage: content,
+            lastMessageTime: new Date(),
+          };
+        }),
+      }));
+    } catch {
+      set((state) => ({
+        conversations: state.conversations.map((conv) => {
+          if (conv.id !== conversationId) return conv;
+          return {
+            ...conv,
+            messages: conv.messages.filter((m) => m.id !== tempId),
+          };
+        }),
+      }));
+      throw new Error('Could not send message');
+    }
   },
   startConversation: async (listing) => {
     const initialMessage = `Hi! Is "${listing.title}" still available?`;
@@ -410,6 +671,8 @@ export const useStore = create<AppState>((set, get) => ({
       showSearch: false,
       searchQuery: '',
       isHydrated: false,
+      hydrationError: null,
+      userProfile: null,
     }),
   showCreateModal: false,
   setShowCreateModal: (show) => set({ showCreateModal: show }),
@@ -438,11 +701,23 @@ export const useStore = create<AppState>((set, get) => ({
   showSettings: false,
   setShowSettings: (show) => set({ showSettings: show }),
   pushNotificationsEnabled: true,
-  setPushNotificationsEnabled: (enabled) => set({ pushNotificationsEnabled: enabled }),
+  setPushNotificationsEnabled: (enabled) => {
+    persistSetting('yap-push-notifications', enabled);
+    set({ pushNotificationsEnabled: enabled });
+  },
   emailNotificationsEnabled: true,
-  setEmailNotificationsEnabled: (enabled) => set({ emailNotificationsEnabled: enabled }),
+  setEmailNotificationsEnabled: (enabled) => {
+    persistSetting('yap-email-notifications', enabled);
+    set({ emailNotificationsEnabled: enabled });
+  },
   showActivityStatus: true,
-  setShowActivityStatus: (show) => set({ showActivityStatus: show }),
+  setShowActivityStatus: (show) => {
+    persistSetting('yap-show-activity', show);
+    set({ showActivityStatus: show });
+  },
   anonymousByDefault: true,
-  setAnonymousByDefault: (anon) => set({ anonymousByDefault: anon }),
+  setAnonymousByDefault: (anon) => {
+    persistSetting('yap-anonymous-default', anon);
+    set({ anonymousByDefault: anon });
+  },
 }));

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
 import { serializePost } from '@/lib/serializers';
+import { createNotification } from '@/lib/notifications';
 import type { Reaction } from '@/types';
 
 const REACTIONS: Reaction[] = ['fire', 'cap', 'dead', 'real', 'sus'];
@@ -39,6 +40,20 @@ export async function POST(
     await prisma.postReaction.create({
       data: { postId: id, userId: user.id, reaction },
     });
+
+    const postAuthor = await prisma.post.findUnique({
+      where: { id },
+      select: { authorId: true },
+    });
+    if (postAuthor && postAuthor.authorId !== user.id) {
+      await createNotification({
+        userId: postAuthor.authorId,
+        type: 'reaction',
+        title: 'New reaction on your yap',
+        body: `Someone reacted with ${reaction} to your post`,
+        postId: id,
+      });
+    }
   }
 
   const post = await prisma.post.findUnique({

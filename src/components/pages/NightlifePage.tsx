@@ -2,16 +2,21 @@
 
 import { FormEvent, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { motion } from 'framer-motion';
-import { MapPin, Navigation, Ticket, Plus, Clock3 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { MapPin, Ticket, Plus, Sparkles, Wallet } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { NightlifePin } from '@/types';
+import NightlifeTicketCard from '@/components/nightlife/NightlifeTicketCard';
+import NightlifeVenueCard from '@/components/nightlife/NightlifeVenueCard';
+import SellTicketPanel from '@/components/nightlife/SellTicketPanel';
+import AddPartyPanel from '@/components/nightlife/AddPartyPanel';
 
 type NightlifeView = 'tickets' | 'map';
 const NightlifeMap = dynamic(() => import('./NightlifeMap'), { ssr: false });
 
 export default function NightlifePage() {
-  const { nightlifeTickets, addNightlifeTicket, nightlifePins, addNightlifePin } = useStore();
+  const { nightlifeTickets, addNightlifeTicket, nightlifePins, addNightlifePin, searchQuery } =
+    useStore();
   const [view, setView] = useState<NightlifeView>('tickets');
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [showPartyForm, setShowPartyForm] = useState(false);
@@ -27,26 +32,37 @@ export default function NightlifePage() {
   const [isConnectingStripe, setIsConnectingStripe] = useState(false);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState<string | null>(null);
 
-  const sortedTickets = useMemo(
-    () => [...nightlifeTickets].sort((a, b) => +new Date(a.eventDate) - +new Date(b.eventDate)),
-    [nightlifeTickets],
+  const sortedTickets = useMemo(() => {
+    let tickets = [...nightlifeTickets].sort((a, b) => +new Date(a.eventDate) - +new Date(b.eventDate));
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      tickets = tickets.filter(
+        (t) => t.title.toLowerCase().includes(q) || t.venue.toLowerCase().includes(q),
+      );
+    }
+    return tickets;
+  }, [nightlifeTickets, searchQuery]);
+
+  const mappablePins: NightlifePin[] = (Array.isArray(nightlifePins) ? nightlifePins : []).flatMap(
+    (pin) => {
+      if (!pin || typeof pin !== 'object') return [];
+      const lat = Number((pin as { lat?: number }).lat);
+      const lng = Number((pin as { lng?: number }).lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+      return [{
+        ...pin,
+        lat,
+        lng,
+        name: pin.name || 'Nightlife Spot',
+        address: pin.address || 'Exeter',
+        type: pin.type === 'nightclub' ? 'nightclub' as const : 'house-party' as const,
+      }];
+    },
   );
-  const mappablePins: NightlifePin[] = (Array.isArray(nightlifePins) ? nightlifePins : []).flatMap((pin) => {
-    if (!pin || typeof pin !== 'object') return [];
-    const lat = Number((pin as { lat?: number }).lat);
-    const lng = Number((pin as { lng?: number }).lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
-    return [{
-      ...pin,
-      lat,
-      lng,
-      name: pin.name || 'Nightlife Spot',
-      address: pin.address || 'Exeter',
-      type: pin.type === 'nightclub' ? 'nightclub' as const : 'house-party' as const,
-    }];
-  });
+
   const clubs = mappablePins.filter((pin) => pin.type === 'nightclub');
   const houseParties = mappablePins.filter((pin) => pin.type === 'house-party');
+  const activeTickets = sortedTickets.filter((t) => !t.isSold && t.status !== 'sold').length;
 
   const handleSellTicket = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,15 +84,10 @@ export default function NightlifePage() {
   const handleStripeOnboard = async () => {
     setIsConnectingStripe(true);
     try {
-      const response = await fetch('/api/stripe/connect/onboard', {
-        method: 'POST',
-      });
+      const response = await fetch('/api/stripe/connect/onboard', { method: 'POST' });
       const data = await response.json();
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data?.error ?? 'Could not start Stripe onboarding.');
-      }
+      if (data?.url) window.location.href = data.url;
+      else alert(data?.error ?? 'Could not start Stripe onboarding.');
     } catch {
       alert('Stripe onboarding failed. Please try again.');
     } finally {
@@ -85,8 +96,6 @@ export default function NightlifePage() {
   };
 
   const handleBuyTicket = async (ticketId: string) => {
-    const ticket = sortedTickets.find((t) => t.id === ticketId);
-    if (!ticket) return;
     setIsCheckoutLoading(ticketId);
     try {
       const response = await fetch('/api/stripe/checkout', {
@@ -95,11 +104,8 @@ export default function NightlifePage() {
         body: JSON.stringify({ ticketId }),
       });
       const data = await response.json();
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data?.error ?? 'Could not start checkout.');
-      }
+      if (data?.url) window.location.href = data.url;
+      else alert(data?.error ?? 'Could not start checkout.');
     } catch {
       alert('Checkout failed. Please try again.');
     } finally {
@@ -132,250 +138,273 @@ export default function NightlifePage() {
     };
 
     if (selectedPoint) {
-      submitWithCoords(selectedPoint.lat, selectedPoint.lng);
+      await submitWithCoords(selectedPoint.lat, selectedPoint.lng);
       setIsAddingParty(false);
       return;
     }
 
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(`${partyAddress} Exeter`)}`);
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(`${partyAddress} Exeter`)}`,
+      );
       const rows = (await res.json()) as Array<{ lat: string; lon: string }>;
-      if (rows[0]) {
-        submitWithCoords(Number(rows[0].lat), Number(rows[0].lon));
-      } else {
-        // Fallback so the button always works even if geocoding fails.
-        submitWithCoords(50.726, -3.53);
-      }
+      if (rows[0]) await submitWithCoords(Number(rows[0].lat), Number(rows[0].lon));
+      else await submitWithCoords(50.726, -3.53);
     } catch {
-      // Fallback to Exeter center if lookup is blocked/rate-limited.
-      submitWithCoords(50.726, -3.53);
+      await submitWithCoords(50.726, -3.53);
     } finally {
       setIsAddingParty(false);
     }
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="px-5 pb-6">
-      <section className="pb-3 pt-4">
-        <p className="text-[11px] uppercase tracking-[0.12em] text-muted-light">Nightlife</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Tickets and Party Map</h1>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className="px-5 pb-8"
+    >
+      {/* Hero */}
+      <section className="pt-4 pb-5">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-3xl p-6 ring-1 ring-white/10"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-[#060f14] via-[#0f2430] to-exeter" />
+          <div
+            className="absolute inset-0 opacity-50"
+            style={{
+              background:
+                'radial-gradient(circle at 20% 30%, rgba(0,121,107,0.5), transparent 50%), radial-gradient(circle at 80% 70%, rgba(139,92,246,0.2), transparent 45%)',
+            }}
+          />
+          <div className="relative">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/50">
+              Exeter nightlife
+            </p>
+            <h1 className="mt-1 text-[26px] font-black tracking-tight text-white leading-tight">
+              After dark
+            </h1>
+            <p className="mt-2 max-w-[280px] text-[13px] leading-relaxed text-white/65">
+              Snag tickets, find house parties, and see what&apos;s open tonight.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/90">
+                {activeTickets} tickets live
+              </span>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/90">
+                {houseParties.length} parties
+              </span>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/90">
+                {clubs.length} clubs
+              </span>
+            </div>
+          </div>
+        </motion.div>
       </section>
 
-      <div className="mb-4 flex rounded-2xl bg-surface/70 p-1.5">
-        <button
-          onClick={() => setView('tickets')}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold ${
-            view === 'tickets' ? 'bg-background text-foreground shadow-sm' : 'text-muted'
-          }`}
-        >
-          <Ticket className="h-4 w-4" />
-          Tickets
-        </button>
-        <button
-          onClick={() => setView('map')}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold ${
-            view === 'map' ? 'bg-background text-foreground shadow-sm' : 'text-muted'
-          }`}
-        >
-          <MapPin className="h-4 w-4" />
-          Map
-        </button>
+      {/* Tabs */}
+      <div className="mb-5 flex rounded-2xl bg-surface/80 p-1 ring-1 ring-divider">
+        {(['tickets', 'map'] as NightlifeView[]).map((tab) => {
+          const active = view === tab;
+          const Icon = tab === 'tickets' ? Ticket : MapPin;
+          const label = tab === 'tickets' ? 'Tickets' : 'Live map';
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setView(tab)}
+              className={`relative flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-[13px] font-bold transition-colors ${
+                active ? 'text-foreground' : 'text-muted'
+              }`}
+            >
+              {active && (
+                <motion.div
+                  layoutId="nightlife-tab"
+                  className="absolute inset-0 rounded-xl bg-background shadow-sm ring-1 ring-divider"
+                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-2">
+                <Icon className="h-4 w-4" strokeWidth={2} />
+                {label}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {view === 'tickets' ? (
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Buy and Resell Club Tickets</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleStripeOnboard}
-                disabled={isConnectingStripe}
-                className="rounded-xl bg-foreground px-3 py-2 text-xs font-semibold text-background disabled:opacity-60"
-              >
-                {isConnectingStripe ? 'Connecting...' : 'Payout Setup'}
-              </button>
-              <button
-                onClick={() => setShowTicketForm((s) => !s)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-exeter px-3 py-2 text-xs font-semibold text-white"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Sell Ticket
-              </button>
-            </div>
-          </div>
-
-          {showTicketForm && (
-            <form onSubmit={handleSellTicket} className="mb-4 space-y-2 rounded-2xl bg-surface/55 p-3">
-              <input
-                value={ticketTitle}
-                onChange={(e) => setTicketTitle(e.target.value)}
-                placeholder="Ticket title"
-                className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  value={ticketVenue}
-                  onChange={(e) => setTicketVenue(e.target.value)}
-                  placeholder="Venue"
-                  className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
-                />
-                <input
-                  value={ticketPrice}
-                  onChange={(e) => setTicketPrice(e.target.value.replace(/[^0-9.]/g, ''))}
-                  placeholder="Price (£)"
-                  className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
-                />
-                <input
-                  value={ticketQty}
-                  onChange={(e) => setTicketQty(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="Qty"
-                  className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
-                />
+      <AnimatePresence mode="wait">
+        {view === 'tickets' ? (
+          <motion.section
+            key="tickets"
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 12 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-[15px] font-semibold text-foreground">Ticket exchange</h2>
+                <p className="text-[12px] text-muted-light">Safe resale via Stripe</p>
               </div>
-              <button type="submit" className="w-full rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background">
-                Post Ticket
-              </button>
-            </form>
-          )}
-
-          <div className="space-y-2">
-            {sortedTickets.map((ticket) => (
-              <div key={ticket.id} className="rounded-2xl bg-surface/55 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{ticket.title}</p>
-                    <p className="mt-0.5 text-xs text-muted">{ticket.venue}</p>
-                  </div>
-                  <p className="text-lg font-bold text-exeter">£{ticket.price}</p>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-muted-light">
-                  <span className="inline-flex items-center gap-1">
-                    <Clock3 className="h-3.5 w-3.5" />
-                    {new Date(ticket.eventDate).toLocaleDateString()}
-                  </span>
-                  <span>{ticket.quantity ?? 1} ticket(s) • {ticket.status ?? 'active'}</span>
-                </div>
+              <div className="flex shrink-0 gap-2">
                 <button
-                  onClick={() => handleBuyTicket(ticket.id)}
-                  disabled={isCheckoutLoading === ticket.id}
-                  className="mt-2 w-full rounded-xl bg-background py-2 text-xs font-semibold text-foreground disabled:opacity-60"
+                  type="button"
+                  onClick={handleStripeOnboard}
+                  disabled={isConnectingStripe}
+                  className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-2 text-[11px] font-semibold text-foreground ring-1 ring-divider disabled:opacity-60"
                 >
-                  {isCheckoutLoading === ticket.id ? 'Opening Checkout...' : 'Buy with Stripe'}
+                  <Wallet className="h-3.5 w-3.5" strokeWidth={2} />
+                  {isConnectingStripe ? '…' : 'Payouts'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTicketForm(true)}
+                  className="flex items-center gap-1.5 rounded-full bg-exeter px-3.5 py-2 text-[11px] font-bold text-white shadow-[0_4px_16px_rgba(0,121,107,0.35)]"
+                >
+                  <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  Sell
                 </button>
               </div>
-            ))}
-          </div>
-        </section>
-      ) : (
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Exeter Night Map</h2>
-            <button
-              onClick={() => setShowPartyForm((s) => !s)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-exeter px-3 py-2 text-xs font-semibold text-white"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {showPartyForm ? 'Close Form' : 'Add House Party'}
-            </button>
-          </div>
+            </div>
 
-          {showPartyForm && (
-            <form onSubmit={handleAddHouseParty} className="mb-3 space-y-2 rounded-2xl bg-surface/55 p-3">
-              <p className="text-xs text-muted">Tap map for exact pin, or we place it from address.</p>
-              <input
-                value={partyName}
-                onChange={(e) => setPartyName(e.target.value)}
-                placeholder="Party name"
-                required
-                className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
-              />
-              <input
-                value={partyAddress}
-                onChange={(e) => setPartyAddress(e.target.value)}
-                placeholder="Address or area in Exeter"
-                required
-                className="w-full rounded-xl bg-background px-3 py-2.5 text-sm outline-none"
-              />
-              {selectedPoint && (
-                <p className="text-[11px] text-exeter">
-                  Pin selected at {selectedPoint.lat.toFixed(4)}, {selectedPoint.lng.toFixed(4)}
+            {sortedTickets.length === 0 ? (
+              <div className="rounded-2xl bg-surface/55 px-6 py-16 text-center ring-1 ring-divider">
+                <Sparkles className="mx-auto mb-3 h-9 w-9 text-muted" strokeWidth={1.5} />
+                <p className="text-[15px] font-semibold text-foreground">No tickets yet</p>
+                <p className="mt-1 text-[13px] text-muted-light">
+                  Be the first to list — someone always needs a spare.
                 </p>
-              )}
-              {formError && <p className="text-[11px] text-red-500">{formError}</p>}
+                <button
+                  type="button"
+                  onClick={() => setShowTicketForm(true)}
+                  className="mt-5 rounded-full bg-exeter px-5 py-2.5 text-[13px] font-bold text-white"
+                >
+                  List a ticket
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sortedTickets.map((ticket, i) => (
+                  <NightlifeTicketCard
+                    key={ticket.id}
+                    ticket={ticket}
+                    index={i}
+                    isLoading={isCheckoutLoading === ticket.id}
+                    onBuy={() => handleBuyTicket(ticket.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </motion.section>
+        ) : (
+          <motion.section
+            key="map"
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -12 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-[15px] font-semibold text-foreground">Exeter live map</h2>
+                <p className="text-[12px] text-muted-light">Tap map to drop a pin</p>
+              </div>
               <button
-                type="submit"
-                disabled={isAddingParty}
-                className="w-full rounded-xl bg-foreground py-2.5 text-sm font-semibold text-background disabled:opacity-60"
+                type="button"
+                onClick={() => setShowPartyForm(true)}
+                className="flex items-center gap-1.5 rounded-full bg-amber-500 px-3.5 py-2 text-[11px] font-bold text-white shadow-[0_4px_16px_rgba(245,158,11,0.35)]"
               >
-                {isAddingParty ? 'Saving...' : 'Save Party Pin'}
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Add party
               </button>
-            </form>
-          )}
+            </div>
 
-          <div className="relative h-[420px] overflow-hidden rounded-3xl bg-surface">
-            <NightlifeMap pins={mappablePins} draftPin={selectedPoint} onMapClick={setSelectedPoint} />
-          </div>
-
-          <div className="mt-3 space-y-4">
-            <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-muted">Nightclubs</h3>
-              <div className="space-y-2">
-                {clubs.map((pin) => (
-                  <div key={pin.id} className="rounded-2xl bg-surface/55 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{pin.name}</p>
-                        <p className="mt-0.5 text-xs text-muted">{pin.address}</p>
-                      </div>
-                      <span className="rounded-full bg-exeter/15 px-2 py-1 text-[10px] font-semibold text-exeter">
-                        {pin.isOpen ? 'Open' : 'Closed'}
-                      </span>
-                    </div>
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${pin.lat},${pin.lng}`)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-background px-3 py-2 text-xs font-semibold text-foreground"
-                    >
-                      <Navigation className="h-3.5 w-3.5" />
-                      Get Directions
-                    </a>
-                  </div>
-                ))}
+            <div className="relative overflow-hidden rounded-3xl ring-1 ring-divider shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+              <div className="absolute left-3 top-3 z-[1000] flex gap-2">
+                <span className="rounded-full bg-background/90 px-2.5 py-1 text-[10px] font-bold text-exeter backdrop-blur-sm ring-1 ring-divider">
+                  🎵 Clubs
+                </span>
+                <span className="rounded-full bg-background/90 px-2.5 py-1 text-[10px] font-bold text-amber-600 backdrop-blur-sm ring-1 ring-divider">
+                  🏠 Parties
+                </span>
+              </div>
+              <div className="h-[min(420px,55vh)]">
+                <NightlifeMap
+                  pins={mappablePins}
+                  draftPin={selectedPoint}
+                  onMapClick={setSelectedPoint}
+                />
               </div>
             </div>
 
-            <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-muted">House Parties</h3>
-              <div className="space-y-2">
-                {houseParties.map((pin) => (
-                  <div key={pin.id} className="rounded-2xl bg-surface/55 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{pin.name}</p>
-                        <p className="mt-0.5 text-xs text-muted">{pin.address}</p>
-                      </div>
-                      <span className="rounded-full bg-amber-500/20 px-2 py-1 text-[10px] font-semibold text-amber-700">
-                        House Party
-                      </span>
-                    </div>
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${pin.lat},${pin.lng}`)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-background px-3 py-2 text-xs font-semibold text-foreground"
-                    >
-                      <Navigation className="h-3.5 w-3.5" />
-                      Get Directions
-                    </a>
+            <div className="mt-5 space-y-5">
+              {clubs.length > 0 && (
+                <div>
+                  <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+                    Nightclubs
+                  </h3>
+                  <div className="space-y-3">
+                    {clubs.map((pin, i) => (
+                      <NightlifeVenueCard key={pin.id} pin={pin} index={i} />
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
+                </div>
+              )}
 
-        </section>
-      )}
+              {houseParties.length > 0 && (
+                <div>
+                  <h3 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+                    House parties
+                  </h3>
+                  <div className="space-y-3">
+                    {houseParties.map((pin, i) => (
+                      <NightlifeVenueCard key={pin.id} pin={pin} index={i} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {clubs.length === 0 && houseParties.length === 0 && (
+                <div className="rounded-2xl bg-surface/55 px-6 py-12 text-center ring-1 ring-divider">
+                  <MapPin className="mx-auto mb-3 h-8 w-8 text-muted" strokeWidth={1.5} />
+                  <p className="text-[14px] font-semibold text-muted">Map warming up</p>
+                  <p className="mt-1 text-[12px] text-muted-light">Add the first house party</p>
+                </div>
+              )}
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      <SellTicketPanel
+        open={showTicketForm}
+        onClose={() => setShowTicketForm(false)}
+        title={ticketTitle}
+        venue={ticketVenue}
+        price={ticketPrice}
+        qty={ticketQty}
+        onTitleChange={setTicketTitle}
+        onVenueChange={setTicketVenue}
+        onPriceChange={setTicketPrice}
+        onQtyChange={setTicketQty}
+        onSubmit={handleSellTicket}
+      />
+
+      <AddPartyPanel
+        open={showPartyForm}
+        onClose={() => setShowPartyForm(false)}
+        name={partyName}
+        address={partyAddress}
+        selectedPoint={selectedPoint}
+        formError={formError}
+        isSubmitting={isAddingParty}
+        onNameChange={setPartyName}
+        onAddressChange={setPartyAddress}
+        onSubmit={handleAddHouseParty}
+      />
     </motion.div>
   );
 }

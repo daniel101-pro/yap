@@ -26,10 +26,14 @@ function CommentItem({
   const { upvoteComment } = useStore();
   const [upvoted, setUpvoted] = useState(false);
 
-  const handleUpvote = () => {
+  const handleUpvote = async () => {
     if (upvoted) return;
     setUpvoted(true);
-    upvoteComment(postId, comment.id);
+    try {
+      await upvoteComment(postId, comment.id);
+    } catch {
+      setUpvoted(false);
+    }
   };
 
   return (
@@ -115,6 +119,8 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
 
   useEffect(() => {
     fetchComments(postId);
+    const interval = setInterval(() => fetchComments(postId), 8000);
+    return () => clearInterval(interval);
   }, [postId, fetchComments]);
 
   useEffect(() => {

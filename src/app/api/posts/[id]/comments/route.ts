@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
 import { serializeComment } from '@/lib/serializers';
+import { createNotification } from '@/lib/notifications';
 
 export async function GET(
   _request: NextRequest,
@@ -65,6 +66,16 @@ export async function POST(
       content,
     },
   });
+
+  if (post.authorId !== user.id) {
+    await createNotification({
+      userId: post.authorId,
+      type: parentId ? 'reply' : 'comment',
+      title: parentId ? 'New reply on your yap' : 'New comment on your yap',
+      body: content.slice(0, 120),
+      postId: id,
+    });
+  }
 
   return NextResponse.json({
     comment: serializeComment(comment, user.id, post.authorId),

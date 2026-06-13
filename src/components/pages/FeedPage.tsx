@@ -1,27 +1,28 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Inbox, Search } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { useRankedFeed } from '@/hooks/useFeedRanking';
 import PostCard from '@/components/feed/PostCard';
 import CategoryFilter from '@/components/feed/CategoryFilter';
+import CommentSheet from '@/components/feed/CommentSheet';
 
 export default function FeedPage() {
-  const { posts, feedFilter, searchQuery } = useStore();
+  const { feedFilter, searchQuery, selectedPostId, setSelectedPostId } = useStore();
+  const ranked = useRankedFeed(feedFilter, searchQuery);
+  const [commentPostId, setCommentPostId] = useState<string | null>(null);
 
-  let filtered = feedFilter === 'all'
-    ? posts
-    : posts.filter((p) => p.category === feedFilter);
-
-  // Apply search
-  if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase();
-    filtered = filtered.filter((p) =>
-      p.content.toLowerCase().includes(q) ||
-      p.poll?.question.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q)
-    );
-  }
+  useEffect(() => {
+    if (!selectedPostId) return;
+    const el = document.getElementById(`post-${selectedPostId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    setCommentPostId(selectedPostId);
+    setSelectedPostId(null);
+  }, [selectedPostId, setSelectedPostId]);
 
   return (
     <motion.div
@@ -31,8 +32,14 @@ export default function FeedPage() {
     >
       <CategoryFilter />
 
+      {!searchQuery.trim() && feedFilter === 'all' && (
+        <p className="px-5 pb-2 text-[11px] text-muted-light">
+          Ranked by what&apos;s hot on campus right now
+        </p>
+      )}
+
       <div className="px-5">
-        {filtered.length === 0 ? (
+        {ranked.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -53,11 +60,18 @@ export default function FeedPage() {
             )}
           </motion.div>
         ) : (
-          filtered.map((post, i) => (
+          ranked.map((post, i) => (
             <PostCard key={post.id} post={post} index={i} />
           ))
         )}
       </div>
+
+      {commentPostId && (
+        <CommentSheet
+          postId={commentPostId}
+          onClose={() => setCommentPostId(null)}
+        />
+      )}
     </motion.div>
   );
 }

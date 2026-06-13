@@ -3,31 +3,17 @@
 import { motion } from 'framer-motion';
 import { Store, Search } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { useRankedMarketplace } from '@/hooks/useFeedRanking';
 import ListingCard from '@/components/marketplace/ListingCard';
 import MarketFilter from '@/components/marketplace/MarketFilter';
 import MyListingsSection from '@/components/marketplace/MyListingsSection';
+import FeaturedListings from '@/components/marketplace/FeaturedListings';
 import ProductDetail from '@/components/marketplace/ProductDetail';
 import SellerProfile from '@/components/marketplace/SellerProfile';
 
 export default function MarketplacePage() {
-  const { listings, marketFilter, selectedListing, setSelectedListing, selectedSellerId, setSelectedSellerId, searchQuery } = useStore();
-
-  let filtered = marketFilter === 'all'
-    ? listings
-    : listings.filter((l) => l.category === marketFilter);
-
-  // Own listings live in the management section
-  filtered = filtered.filter((l) => !l.isOwn);
-
-  // Apply search
-  if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase();
-    filtered = filtered.filter((l) =>
-      l.title.toLowerCase().includes(q) ||
-      l.description.toLowerCase().includes(q) ||
-      l.category.toLowerCase().includes(q)
-    );
-  }
+  const { marketFilter, selectedListing, setSelectedListing, selectedSellerId, setSelectedSellerId, searchQuery, listings } = useStore();
+  const ranked = useRankedMarketplace(marketFilter, searchQuery, true);
 
   // Seller profile view
   if (selectedSellerId) {
@@ -68,23 +54,30 @@ export default function MarketplacePage() {
             Discover good finds nearby
           </h1>
           <span className="rounded-full bg-surface px-3 py-1 text-xs font-medium text-muted">
-            {filtered.length} item{filtered.length === 1 ? '' : 's'}
+            {ranked.length} item{ranked.length === 1 ? '' : 's'}
           </span>
         </div>
       </section>
 
       <MyListingsSection />
 
+      {!searchQuery.trim() && marketFilter === 'all' && <FeaturedListings />}
+
       <section className="px-5 pb-1">
         <h2 className="text-[15px] font-semibold tracking-tight text-foreground">
-          Browse campus
+          {searchQuery.trim() ? 'Search results' : 'Browse campus'}
         </h2>
+        {!searchQuery.trim() && (
+          <p className="mt-0.5 text-[11px] text-muted-light">
+            Fresh deals and popular picks near you
+          </p>
+        )}
       </section>
 
       <MarketFilter />
 
       <div className="px-5 pb-4 pt-2">
-        {filtered.length === 0 ? (
+        {ranked.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -106,7 +99,7 @@ export default function MarketplacePage() {
           </motion.div>
         ) : (
           <div className="grid grid-cols-2 gap-x-4 gap-y-7 md:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((listing, i) => (
+            {ranked.map((listing, i) => (
               <ListingCard key={listing.id} listing={listing} index={i} />
             ))}
           </div>

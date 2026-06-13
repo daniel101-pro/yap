@@ -52,6 +52,7 @@ export default function SettingsPage() {
     setThemePreference,
     setShowSettings,
     resetAppState,
+    deleteAccount,
     pushNotificationsEnabled,
     setPushNotificationsEnabled,
     emailNotificationsEnabled,
@@ -64,6 +65,7 @@ export default function SettingsPage() {
 
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleSignOut = async () => {
     resetAppState();
@@ -71,8 +73,17 @@ export default function SettingsPage() {
   };
 
   const handleDeleteAccount = async () => {
-    resetAppState();
-    await signOut({ callbackUrl: '/' });
+    setIsDeleting(true);
+    try {
+      await deleteAccount();
+      resetAppState();
+      await signOut({ callbackUrl: '/' });
+    } catch {
+      alert('Could not delete account. Try again or contact support.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   return (
@@ -265,7 +276,10 @@ export default function SettingsPage() {
                 <ChevronRight size={16} className="text-muted" />
               </button>
               <div className="mx-4 h-px bg-divider/45" />
-              <button className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover/70 transition-colors">
+              <button
+                onClick={() => window.open('mailto:hello@yap.college', '_blank')}
+                className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover/70 transition-colors"
+              >
                 <span className="text-sm text-foreground">Contact Support</span>
                 <ChevronRight size={16} className="text-muted" />
               </button>
@@ -368,9 +382,10 @@ export default function SettingsPage() {
                 </button>
                 <button
                   onClick={handleDeleteAccount}
-                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-[13px] font-semibold"
+                  disabled={isDeleting}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-[13px] font-semibold disabled:opacity-50"
                 >
-                  Delete
+                  {isDeleting ? 'Deleting…' : 'Delete'}
                 </button>
               </div>
             </motion.div>

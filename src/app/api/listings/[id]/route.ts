@@ -30,7 +30,7 @@ export async function PATCH(
     where: { id },
     data: { isSold },
     include: {
-      seller: true,
+      seller: { include: { _count: { select: { listings: { where: { isSold: true } } } } } },
       _count: { select: { saves: true } },
     },
   });

@@ -31,6 +31,7 @@ export default function CreatePostModal() {
   const [postMedia, setPostMedia] = useState<{ type: 'image' | 'video'; url: string }[]>([]);
   const [listingImages, setListingImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const postMediaInputRef = useRef<HTMLInputElement>(null);
   const listingImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -97,21 +98,31 @@ export default function CreatePostModal() {
 
   const handleSubmitPost = async () => {
     if (!content.trim() && postMedia.length === 0) return;
-    await addPost(content.trim(), category, postMedia);
-    clearComposer();
+    setSubmitError('');
+    try {
+      await addPost(content.trim(), category, postMedia);
+      clearComposer();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not post');
+    }
   };
 
   const handleSubmitListing = async () => {
     if (!title.trim() || !price) return;
-    await addListing({
-      title: title.trim(),
-      description: description.trim(),
-      price: parseFloat(price),
-      category: marketCategory,
-      condition,
-      images: listingImages,
-    });
-    clearComposer();
+    setSubmitError('');
+    try {
+      await addListing({
+        title: title.trim(),
+        description: description.trim(),
+        price: parseFloat(price),
+        category: marketCategory,
+        condition,
+        images: listingImages,
+      });
+      clearComposer();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not create listing');
+    }
   };
 
   const canSubmit =
@@ -167,6 +178,10 @@ export default function CreatePostModal() {
                 {createMode === 'post' ? 'Yap' : 'List'}
               </motion.button>
             </div>
+
+            {submitError && (
+              <p className="px-5 pb-2 text-[13px] font-medium text-red-500">{submitError}</p>
+            )}
 
             {/* Mode Toggle */}
             <div className="px-5 pb-4 flex-shrink-0">

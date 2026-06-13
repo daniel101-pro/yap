@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
   const title = typeof body.title === 'string' ? body.title.trim() : '';
   const description = typeof body.description === 'string' ? body.description.trim() : '';
 
-  if (!title || !description) {
-    return NextResponse.json({ error: 'Title and description required' }, { status: 400 });
+  if (!title) {
+    return NextResponse.json({ error: 'Title required' }, { status: 400 });
   }
 
   await ensureAnonymousHandle(user.id);
@@ -26,14 +26,14 @@ export async function POST(request: NextRequest) {
     data: {
       sellerId: user.id,
       title,
-      description,
+      description: description || title,
       price: Number(body.price) || 0,
       category: (body.category as MarketCategory) ?? 'other',
       images: toJson(Array.isArray(body.images) ? body.images : []),
       condition: body.condition ?? 'good',
     },
     include: {
-      seller: true,
+      seller: { include: { _count: { select: { listings: { where: { isSold: true } } } } } },
       _count: { select: { saves: true } },
     },
   });

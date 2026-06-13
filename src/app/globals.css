@@ -26,6 +26,21 @@
   background: #f59e0b;
 }
 
+/* Leaflet popup — match app UI */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+.leaflet-popup-content {
+  margin: 12px 14px;
+  line-height: 1.4;
+}
+.leaflet-popup-tip {
+  box-shadow: none;
+}
+
+
 .nightlife-marker.draft {
   background: #ef4444;
 }

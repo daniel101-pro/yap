@@ -28,6 +28,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
+  if (event.type === 'checkout.session.expired') {
+    const session = event.data.object;
+    const ticketId = session.metadata?.ticketId;
+    if (ticketId) {
+      await prisma.nightlifeTicket.updateMany({
+        where: { id: ticketId, status: 'reserved' },
+        data: { status: 'active' },
+      });
+    }
+  }
+
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const ticketId = session.metadata?.ticketId;

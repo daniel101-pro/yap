@@ -11,8 +11,10 @@ interface PollCardProps {
 }
 
 export default function PollCard({ poll, postId }: PollCardProps) {
-  const { voteOnPoll } = useStore();
-  const voted = poll.userVote;
+  const voteOnPoll = useStore((s) => s.voteOnPoll);
+  const post = useStore((s) => s.posts.find((p) => p.id === postId));
+  const livePoll = post?.poll ?? poll;
+  const voted = livePoll.userVote;
 
   const handleVote = (optionId: number) => {
     if (voted !== undefined) return;
@@ -21,11 +23,11 @@ export default function PollCard({ poll, postId }: PollCardProps) {
 
   return (
     <div className="space-y-2 mb-1">
-      <h3 className="text-[15px] font-semibold text-foreground">{poll.question}</h3>
+      <h3 className="text-[15px] font-semibold text-foreground">{livePoll.question}</h3>
       <div className="space-y-1.5">
-        {poll.options.map((option) => {
+        {livePoll.options.map((option) => {
           const percentage = voted !== undefined
-            ? Math.round((option.votes / poll.totalVotes) * 100)
+            ? Math.round((option.votes / livePoll.totalVotes) * 100)
             : 0;
           const isSelected = voted === option.id;
 
@@ -74,7 +76,7 @@ export default function PollCard({ poll, postId }: PollCardProps) {
         })}
       </div>
       <p className="text-[11px] text-muted mt-1">
-        {formatNumber(poll.totalVotes)} votes
+        {formatNumber(livePoll.totalVotes)} votes
       </p>
     </div>
   );
