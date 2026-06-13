@@ -106,7 +106,7 @@ function CommentItem({
 }
 
 export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
-  const { comments, addComment, posts } = useStore();
+  const { comments, addComment, fetchComments, posts } = useStore();
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -114,14 +114,18 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
   const post = posts.find((p) => p.id === postId);
 
   useEffect(() => {
+    fetchComments(postId);
+  }, [postId, fetchComments]);
+
+  useEffect(() => {
     if (replyingTo && inputRef.current) {
       inputRef.current.focus();
     }
   }, [replyingTo]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!newComment.trim()) return;
-    addComment(postId, newComment.trim(), replyingTo || undefined);
+    await addComment(postId, newComment.trim(), replyingTo || undefined);
     setNewComment('');
     setReplyingTo(null);
   };

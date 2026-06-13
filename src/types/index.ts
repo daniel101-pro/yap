@@ -13,6 +13,7 @@ export interface Post {
   commentCount: number;
   timestamp: Date;
   isVerified: boolean;
+  isOwn?: boolean;
   poll?: Poll;
   imageUrl?: string;
   media?: { type: 'image' | 'video'; url: string }[];

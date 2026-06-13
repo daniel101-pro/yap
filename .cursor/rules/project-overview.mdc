@@ -1,0 +1,87 @@
+---
+description: YAP project architecture, conventions, and key facts
+alwaysApply: true
+---
+
+# YAP — Project Overview
+
+**YAP** ("Your Campus, Unfiltered") is an anonymous campus social + marketplace app for **University of Exeter** students. Verified via `@exeter.ac.uk` email. Gen Z, minimalist, Apple-inspired UI with Exeter green accent.
+
+## Tech Stack
+
+- **Next.js 16** (App Router, Turbopack dev) + **React 19** + **TypeScript**
+- **Tailwind CSS v4** (`@import "tailwindcss"` in `globals.css`, `@theme inline` for tokens)
+- **Auth.js (NextAuth v5)** + **Prisma** (SQLite) + **Resend** magic-link email auth
+- **Zustand** — app state (`src/lib/store.ts`); auth sessions via NextAuth
+- **Framer Motion** — page transitions, landing animations
+- **Leaflet / react-leaflet** — Nightlife map (SSR disabled via `dynamic()`)
+- **Stripe** — ticket checkout + Connect Express seller onboarding
+- **Lucide React** — icons (`src/lib/icons.ts` for custom mappings)
+
+## App Structure
+
+Single-page app: `src/app/page.tsx` orchestrates everything after auth.
+
+| Route / Tab | Component | Purpose |
+|---|---|---|
+| Unauthenticated | `HeroSection` | Landing + `@exeter.ac.uk` email verification flow |
+| `feed` | `FeedPage` | Anonymous posts, reactions, polls, comments |
+| `market` | `MarketplacePage` | Student marketplace (textbooks, electronics, etc.) |
+| `nightlife` | `NightlifePage` | Ticket resale + Exeter nightlife map |
+| `profile` | `ProfilePage` | User karma, stats |
+| Overlay | `SettingsPage`, `NotificationsPage` | Full-screen overlays via store flags |
+
+Navigation: `BottomNav` (5 tabs: Feed, Market, Night, Post, Profile). Create opens `CreatePostModal`.
+
+## State Management
+
+All app state in `useStore` (`src/lib/store.ts`). **Auth** via NextAuth session (`useSession`, `auth()`). Mock data in `src/lib/mock-data.ts`. Theme persisted to `localStorage` (`theme-preference`).
+
+Key store domains: auth, feed (posts/reactions/polls), comments, marketplace (listings/saved), nightlife (tickets/pins), conversations/messages, notifications, UI (tabs/modals/search), settings.
+
+## Types
+
+Defined in `src/types/index.ts`: `Post`, `Listing`, `Comment`, `NightlifeTicket`, `NightlifePin`, `Notification`, `Conversation`, etc.
+
+Post categories: `confessions | hot-takes | questions | memes | events | rants | advice`
+Reactions: `fire | cap | dead | real | sus` (Gen Z slang, not likes)
+Market categories: `textbooks | electronics | furniture | clothing | bikes | tickets | other`
+
+## Design System
+
+- **Brand color**: Exeter green `#00796B` (`--color-exeter`, `bg-exeter` Tailwind class)
+- **Font**: Geist Sans (layout), design-system.md references Fredoka but code uses Geist
+- **Dark mode**: `.dark` class on root, CSS variables in `globals.css`
+- **Mobile-first**: `max-w-2xl` content, bottom nav, `min-h-dvh`, safe-area insets
+- **Landing**: dark video hero (`/exeter-campus.mp4`), glass buttons
+
+## API Routes
+
+- `GET/POST /api/auth/[...nextauth]` — Auth.js handlers (magic link sign-in)
+- `POST /api/stripe/checkout` — Stripe Checkout for nightlife tickets (auth required)
+- `POST /api/stripe/connect/onboard` — Stripe Connect Express onboarding (auth required)
+- Env: `AUTH_SECRET`, `AUTH_URL`, `DATABASE_URL`, `AUTH_RESEND_KEY`, `EMAIL_FROM`, `STRIPE_SECRET_KEY`
+
+## File Layout
+
+```
+src/
+  app/           # Next.js app router (page.tsx, layout.tsx, api/)
+  components/
+    landing/     # HeroSection
+    layout/      # TopBar, BottomNav
+    feed/        # PostCard, PollCard, CommentSheet, CreatePostModal, CategoryFilter
+    marketplace/ # ListingCard, ProductDetail, SellerProfile, MessageSheet, MarketFilter
+    pages/       # FeedPage, MarketplacePage, NightlifePage, NightlifeMap, ProfilePage, SettingsPage, NotificationsPage
+    ui/          # ReactionButton
+  lib/           # store.ts, mock-data.ts, stripe.ts, utils.ts, icons.ts
+  types/         # index.ts
+```
+
+## Conventions
+
+- Client components use `'use client'`
+- Path alias: `@/` → `src/`
+- New posts/listings generate IDs with `Date.now()` prefix
+- Nightlife map pins: `nightclub` (green) vs `house-party` (amber)
+- No tests, no CI config, no database — prototype/MVP stage

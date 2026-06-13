@@ -2,28 +2,29 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSession } from 'next-auth/react';
 import { TrendingUp, MessageSquare, ChevronRight, User, Settings, Heart, Trash2 } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { timeAgo } from '@/lib/utils';
 import CommentSheet from '@/components/feed/CommentSheet';
 
 export default function ProfilePage() {
-  const { posts, setShowSettings, savedListings, listings, setActiveTab, setSelectedListing, deletePost, email } = useStore();
+  const { data: session } = useSession();
+  const { posts, setShowSettings, savedListings, listings, setActiveTab, setSelectedListing, deletePost } = useStore();
   const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
   const [showSaved, setShowSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  // Calculate dynamic stats
-  const totalReactions = posts.reduce((sum, post) => {
-    return sum + Object.values(post.reactions).reduce((a, b) => a + b, 0);
-  }, 0);
-  const postCount = posts.length;
-
-  const userPosts = posts.slice(0, 5);
+  const userPosts = posts.filter((p) => p.isOwn).slice(0, 5);
   const saved = listings.filter((l) => savedListings.includes(l.id));
 
-  const handleDeletePost = (postId: string) => {
-    deletePost(postId);
+  const totalReactions = userPosts.reduce((sum, post) => {
+    return sum + Object.values(post.reactions).reduce((a, b) => a + b, 0);
+  }, 0);
+  const postCount = userPosts.length;
+
+  const handleDeletePost = async (postId: string) => {
+    await deletePost(postId);
     setConfirmDelete(null);
   };
 
@@ -79,7 +80,7 @@ export default function ProfilePage() {
             transition={{ delay: 0.25 }}
             className="mt-1 text-[11px] text-muted-light"
           >
-            {email || 'user@exeter.ac.uk'}
+            {session?.user?.email ?? 'user@exeter.ac.uk'}
           </motion.p>
           </div>
         </div>

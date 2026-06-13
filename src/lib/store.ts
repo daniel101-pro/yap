@@ -1,83 +1,97 @@
 import { create } from 'zustand';
-import { Post, Listing, Reaction, PostCategory, MarketCategory, Comment, Notification, Conversation, Message, NightlifeTicket, NightlifePin } from '@/types';
-import { mockPosts, mockListings, allMockComments, mockNotifications } from './mock-data';
+import {
+  Post,
+  Listing,
+  Reaction,
+  PostCategory,
+  MarketCategory,
+  Comment,
+  Notification,
+  Conversation,
+  Message,
+  NightlifeTicket,
+  NightlifePin,
+} from '@/types';
+import { api } from '@/lib/api';
+
+interface BootstrapData {
+  posts: Post[];
+  listings: Listing[];
+  nightlifeTickets: NightlifeTicket[];
+  nightlifePins: NightlifePin[];
+  notifications: Notification[];
+  savedListingIds: string[];
+}
 
 interface AppState {
-  // Auth
-  isAuthenticated: boolean;
-  email: string;
-  setEmail: (email: string) => void;
-  login: () => void;
-  logout: () => void;
+  isHydrated: boolean;
+  isHydrating: boolean;
+  hydrateFromServer: () => Promise<void>;
 
-  // Feed
   posts: Post[];
   feedFilter: PostCategory | 'all';
   setFeedFilter: (filter: PostCategory | 'all') => void;
-  reactToPost: (postId: string, reaction: Reaction) => void;
-  addPost: (content: string, category: PostCategory, media?: Post['media']) => void;
-  deletePost: (postId: string) => void;
-  voteOnPoll: (postId: string, optionId: number) => void;
+  reactToPost: (postId: string, reaction: Reaction) => Promise<void>;
+  addPost: (content: string, category: PostCategory, media?: Post['media']) => Promise<void>;
+  deletePost: (postId: string) => Promise<void>;
+  voteOnPoll: (postId: string, optionId: number) => Promise<void>;
 
-  // Comments
   comments: Record<string, Comment[]>;
-  addComment: (postId: string, content: string, parentCommentId?: string) => void;
+  fetchComments: (postId: string) => Promise<void>;
+  addComment: (postId: string, content: string, parentCommentId?: string) => Promise<void>;
   upvoteComment: (postId: string, commentId: string) => void;
 
-  // Marketplace
   listings: Listing[];
   marketFilter: MarketCategory | 'all';
   setMarketFilter: (filter: MarketCategory | 'all') => void;
-  addListing: (listing: Omit<Listing, 'id' | 'timestamp' | 'isVerified' | 'isSold' | 'sellerKarma' | 'seller' | 'reviews' | 'views' | 'saved'>) => void;
+  addListing: (
+    listing: Omit<
+      Listing,
+      'id' | 'timestamp' | 'isVerified' | 'isSold' | 'sellerKarma' | 'seller' | 'reviews' | 'views' | 'saved'
+    >,
+  ) => Promise<void>;
   savedListings: string[];
-  toggleSaveListing: (listingId: string) => void;
+  toggleSaveListing: (listingId: string) => Promise<void>;
 
-  // Nightlife
   nightlifeTickets: NightlifeTicket[];
-  addNightlifeTicket: (ticket: Omit<NightlifeTicket, 'id' | 'sellerName' | 'isSold'>) => void;
+  addNightlifeTicket: (ticket: Omit<NightlifeTicket, 'id' | 'sellerName' | 'isSold'>) => Promise<void>;
   nightlifePins: NightlifePin[];
-  addNightlifePin: (pin: Omit<NightlifePin, 'id'>) => void;
+  addNightlifePin: (pin: Omit<NightlifePin, 'id'>) => Promise<void>;
 
-  // Listing detail
   selectedListing: Listing | null;
   setSelectedListing: (listing: Listing | null) => void;
   selectedSellerId: string | null;
   setSelectedSellerId: (id: string | null) => void;
 
-  // Conversations / Messages
   conversations: Conversation[];
   activeConversation: string | null;
   setActiveConversation: (id: string | null) => void;
   sendMessage: (conversationId: string, content: string) => void;
   startConversation: (listing: Listing) => string;
 
-  // Notifications
   notifications: Notification[];
   showNotifications: boolean;
   setShowNotifications: (show: boolean) => void;
-  markNotificationRead: (id: string) => void;
-  markAllNotificationsRead: () => void;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   unreadNotificationCount: () => number;
 
-  // UI
   activeTab: 'feed' | 'market' | 'nightlife' | 'create' | 'profile';
   setActiveTab: (tab: 'feed' | 'market' | 'nightlife' | 'create' | 'profile') => void;
+  resetAppState: () => void;
   showCreateModal: boolean;
   setShowCreateModal: (show: boolean) => void;
   createMode: 'post' | 'listing';
   setCreateMode: (mode: 'post' | 'listing') => void;
 
-  // Post detail (comments view)
   selectedPostId: string | null;
   setSelectedPostId: (id: string | null) => void;
 
-  // Search
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   showSearch: boolean;
   setShowSearch: (show: boolean) => void;
 
-  // Theme
   theme: 'light' | 'dark';
   themePreference: 'system' | 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
@@ -85,7 +99,6 @@ interface AppState {
   setResolvedTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
 
-  // Settings
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
   pushNotificationsEnabled: boolean;
@@ -99,56 +112,56 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set, get) => ({
-  isAuthenticated: false,
-  email: '',
-  setEmail: (email) => set({ email }),
-  login: () => set({ isAuthenticated: true }),
-  logout: () => set({
-    isAuthenticated: false,
-    email: '',
-    showSettings: false,
-    activeTab: 'feed',
-    selectedPostId: null,
-    selectedListing: null,
-    selectedSellerId: null,
-    showNotifications: false,
-    showSearch: false,
-  }),
+  isHydrated: false,
+  isHydrating: false,
+  hydrateFromServer: async () => {
+    if (get().isHydrating) return;
+    set({ isHydrating: true });
+    try {
+      const data = await api<BootstrapData>('/api/bootstrap');
+      set({
+        posts: data.posts.map((p) => ({ ...p, timestamp: new Date(p.timestamp) })),
+        listings: data.listings.map((l) => ({ ...l, timestamp: new Date(l.timestamp) })),
+        nightlifeTickets: data.nightlifeTickets.map((t) => ({
+          ...t,
+          eventDate: new Date(t.eventDate),
+        })),
+        nightlifePins: data.nightlifePins,
+        notifications: data.notifications.map((n) => ({ ...n, timestamp: new Date(n.timestamp) })),
+        savedListings: data.savedListingIds,
+        isHydrated: true,
+        isHydrating: false,
+      });
+    } catch {
+      set({ isHydrating: false });
+    }
+  },
 
-  posts: mockPosts,
+  posts: [],
   feedFilter: 'all',
   setFeedFilter: (filter) => set({ feedFilter: filter }),
-  reactToPost: (postId, reaction) =>
+  reactToPost: async (postId, reaction) => {
+    const { post } = await api<{ post: Post }>(`/api/posts/${postId}/react`, {
+      method: 'POST',
+      body: JSON.stringify({ reaction }),
+    });
     set((state) => ({
-      posts: state.posts.map((post) => {
-        if (post.id !== postId) return post;
-        const prev = post.userReaction;
-        const reactions = { ...post.reactions };
-        if (prev) reactions[prev] = Math.max(0, reactions[prev] - 1);
-        if (prev !== reaction) {
-          reactions[reaction] = reactions[reaction] + 1;
-          return { ...post, reactions, userReaction: reaction };
-        }
-        return { ...post, reactions, userReaction: null };
-      }),
-    })),
-  addPost: (content, category, media = []) =>
+      posts: state.posts.map((p) =>
+        p.id === postId ? { ...post, timestamp: new Date(post.timestamp) } : p,
+      ),
+    }));
+  },
+  addPost: async (content, category, media = []) => {
+    const { post } = await api<{ post: Post }>('/api/posts', {
+      method: 'POST',
+      body: JSON.stringify({ content, category, media }),
+    });
     set((state) => ({
-      posts: [
-        {
-          id: `p${Date.now()}`,
-          content,
-          category,
-          media,
-          reactions: { fire: 0, cap: 0, dead: 0, real: 0, sus: 0 },
-          commentCount: 0,
-          timestamp: new Date(),
-          isVerified: true,
-        },
-        ...state.posts,
-      ],
-    })),
-  deletePost: (postId) =>
+      posts: [{ ...post, timestamp: new Date(post.timestamp) }, ...state.posts],
+    }));
+  },
+  deletePost: async (postId) => {
+    await api(`/api/posts/${postId}`, { method: 'DELETE' });
     set((state) => ({
       posts: state.posts.filter((p) => p.id !== postId),
       comments: (() => {
@@ -156,65 +169,70 @@ export const useStore = create<AppState>((set, get) => ({
         delete c[postId];
         return c;
       })(),
-    })),
-  voteOnPoll: (postId, optionId) =>
+    }));
+  },
+  voteOnPoll: async (postId, optionId) => {
+    const { post } = await api<{ post: Post }>(`/api/posts/${postId}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ optionId }),
+    });
     set((state) => ({
-      posts: state.posts.map((post) => {
-        if (post.id !== postId || !post.poll || post.poll.userVote !== undefined) return post;
-        return {
-          ...post,
-          poll: {
-            ...post.poll,
-            userVote: optionId,
-            totalVotes: post.poll.totalVotes + 1,
-            options: post.poll.options.map((opt) =>
-              opt.id === optionId ? { ...opt, votes: opt.votes + 1 } : opt
-            ),
-          },
-        };
-      }),
-    })),
+      posts: state.posts.map((p) =>
+        p.id === postId ? { ...post, timestamp: new Date(post.timestamp) } : p,
+      ),
+    }));
+  },
 
-  // Comments
-  comments: allMockComments,
-  addComment: (postId, content, parentCommentId) =>
+  comments: {},
+  fetchComments: async (postId) => {
+    const { comments } = await api<{ comments: Comment[] }>(`/api/posts/${postId}/comments`);
+    set((state) => ({
+      comments: {
+        ...state.comments,
+        [postId]: comments.map((c) => ({
+          ...c,
+          timestamp: new Date(c.timestamp),
+          replies: c.replies.map((r) => ({ ...r, timestamp: new Date(r.timestamp) })),
+        })),
+      },
+    }));
+  },
+  addComment: async (postId, content, parentCommentId) => {
+    const { comment } = await api<{ comment: Comment }>(`/api/posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content, parentId: parentCommentId }),
+    });
+    const normalized = {
+      ...comment,
+      timestamp: new Date(comment.timestamp),
+      replies: comment.replies.map((r) => ({ ...r, timestamp: new Date(r.timestamp) })),
+    };
+
     set((state) => {
-      const newComment: Comment = {
-        id: `c${Date.now()}`,
-        postId,
-        content,
-        timestamp: new Date(),
-        upvotes: 0,
-        replies: [],
-        isOP: true,
-      };
-
-      const postComments = [...(state.comments[postId] || [])];
-
+      const postComments = state.comments[postId] ?? [];
       if (parentCommentId) {
-        // Add as reply to existing comment
         const addReply = (comments: Comment[]): Comment[] =>
           comments.map((c) => {
             if (c.id === parentCommentId) {
-              return { ...c, replies: [...c.replies, newComment] };
+              return { ...c, replies: [...c.replies, normalized] };
             }
             return { ...c, replies: addReply(c.replies) };
           });
         return {
           comments: { ...state.comments, [postId]: addReply(postComments) },
           posts: state.posts.map((p) =>
-            p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p
+            p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p,
           ),
         };
       }
-
       return {
-        comments: { ...state.comments, [postId]: [newComment, ...postComments] },
+        comments: { ...state.comments, [postId]: [normalized, ...postComments] },
         posts: state.posts.map((p) =>
-          p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p
+          p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p,
         ),
       };
-    }),
+    });
+  },
   upvoteComment: (postId, commentId) =>
     set((state) => {
       const upvoteInList = (comments: Comment[]): Comment[] =>
@@ -230,126 +248,63 @@ export const useStore = create<AppState>((set, get) => ({
       };
     }),
 
-  listings: mockListings,
+  listings: [],
   marketFilter: 'all',
   setMarketFilter: (filter) => set({ marketFilter: filter }),
-  addListing: (listing) =>
+  addListing: async (listing) => {
+    const { listing: created } = await api<{ listing: Listing }>('/api/listings', {
+      method: 'POST',
+      body: JSON.stringify(listing),
+    });
     set((state) => ({
-      listings: [
-        {
-          ...listing,
-          id: `l${Date.now()}`,
-          timestamp: new Date(),
-          isVerified: true,
-          isSold: false,
-          sellerKarma: 0,
-          images: listing.images,
-          seller: { id: 'self', name: 'You', rating: 5, totalSales: 0, joinDate: new Date() },
-          reviews: [],
-          views: 0,
-          saved: 0,
-        },
-        ...state.listings,
-      ],
-    })),
+      listings: [{ ...created, timestamp: new Date(created.timestamp) }, ...state.listings],
+    }));
+  },
   savedListings: [],
-  toggleSaveListing: (listingId) =>
+  toggleSaveListing: async (listingId) => {
+    const { listing, saved } = await api<{ listing: Listing; saved: boolean }>(
+      `/api/listings/${listingId}/save`,
+      { method: 'POST' },
+    );
     set((state) => ({
-      savedListings: state.savedListings.includes(listingId)
-        ? state.savedListings.filter((id) => id !== listingId)
-        : [...state.savedListings, listingId],
-    })),
+      savedListings: saved
+        ? [...state.savedListings, listingId]
+        : state.savedListings.filter((id) => id !== listingId),
+      listings: state.listings.map((l) =>
+        l.id === listingId ? { ...listing, timestamp: new Date(listing.timestamp) } : l,
+      ),
+    }));
+  },
 
-  nightlifeTickets: [
-    {
-      id: 'nt1',
-      title: '2x TP Friday Guestlist',
-      venue: 'Timepiece',
-      price: 10,
-      eventDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 2),
-      sellerName: 'NightSeller_12',
-      quantity: 2,
-      status: 'active',
-      isSold: false,
-    },
-    {
-      id: 'nt2',
-      title: 'Arena Saturday Ticket',
-      venue: 'Arena Exeter',
-      price: 7,
-      eventDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 1),
-      sellerName: 'ClubPass_Exe',
-      quantity: 1,
-      status: 'active',
-      isSold: false,
-    },
-  ],
-  addNightlifeTicket: (ticket) =>
+  nightlifeTickets: [],
+  addNightlifeTicket: async (ticket) => {
+    const { ticket: created } = await api<{ ticket: NightlifeTicket }>('/api/nightlife/tickets', {
+      method: 'POST',
+      body: JSON.stringify(ticket),
+    });
     set((state) => ({
       nightlifeTickets: [
-        {
-          ...ticket,
-          id: `nt${Date.now()}`,
-          sellerName: 'You',
-          quantity: ticket.quantity ?? 1,
-          status: 'active',
-          isSold: false,
-        },
+        { ...created, eventDate: new Date(created.eventDate) },
         ...state.nightlifeTickets,
       ],
-    })),
-  nightlifePins: [
-    {
-      id: 'np1',
-      name: 'Timepiece',
-      type: 'nightclub',
-      address: 'Little Castle Street, Exeter EX4 3PX',
-      mapsQuery: 'Timepiece Exeter',
-      lat: 50.7225,
-      lng: -3.5326,
-      isOpen: true,
-    },
-    {
-      id: 'np2',
-      name: 'Arena Exeter',
-      type: 'nightclub',
-      address: '17-18 King William Street, Exeter EX4 6PD',
-      mapsQuery: 'Arena Exeter nightclub',
-      lat: 50.7217,
-      lng: -3.5319,
-      isOpen: true,
-    },
-    {
-      id: 'np3',
-      name: 'Move Exeter',
-      type: 'nightclub',
-      address: '4 The Quay, Exeter EX2 4AP',
-      mapsQuery: 'Move Exeter',
-      lat: 50.7188,
-      lng: -3.5315,
-      isOpen: false,
-    },
-    {
-      id: 'np4',
-      name: 'Pennsylvania House Party',
-      type: 'house-party',
-      address: 'Pennsylvania Road, Exeter',
-      mapsQuery: 'Pennsylvania Road Exeter',
-      lat: 50.7358,
-      lng: -3.5268,
-    },
-  ],
-  addNightlifePin: (pin) =>
+    }));
+  },
+  nightlifePins: [],
+  addNightlifePin: async (pin) => {
+    const { pin: created } = await api<{ pin: NightlifePin }>('/api/nightlife/pins', {
+      method: 'POST',
+      body: JSON.stringify(pin),
+    });
     set((state) => ({
-      nightlifePins: [{ ...pin, id: `np${Date.now()}` }, ...state.nightlifePins],
-    })),
+      nightlifePins: [created, ...state.nightlifePins],
+    }));
+  },
 
   selectedListing: null,
   setSelectedListing: (listing) => set({ selectedListing: listing }),
   selectedSellerId: null,
   setSelectedSellerId: (id) => set({ selectedSellerId: id }),
 
-  // Conversations
   conversations: [],
   activeConversation: null,
   setActiveConversation: (id) => set({ activeConversation: id }),
@@ -375,7 +330,6 @@ export const useStore = create<AppState>((set, get) => ({
     })),
   startConversation: (listing) => {
     const state = get();
-    // Check if conversation already exists for this listing
     const existing = state.conversations.find((c) => c.listingId === listing.id);
     if (existing) {
       set({ activeConversation: existing.id });
@@ -416,34 +370,45 @@ export const useStore = create<AppState>((set, get) => ({
     return id;
   },
 
-  // Notifications
-  notifications: mockNotifications,
+  notifications: [],
   showNotifications: false,
   setShowNotifications: (show) => set({ showNotifications: show }),
-  markNotificationRead: (id) =>
+  markNotificationRead: async (id) => {
+    await api(`/api/notifications/${id}/read`, { method: 'PATCH' });
     set((state) => ({
-      notifications: state.notifications.map((n) =>
-        n.id === id ? { ...n, read: true } : n
-      ),
-    })),
-  markAllNotificationsRead: () =>
+      notifications: state.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    }));
+  },
+  markAllNotificationsRead: async () => {
+    await api('/api/notifications/read-all', { method: 'POST' });
     set((state) => ({
       notifications: state.notifications.map((n) => ({ ...n, read: true })),
-    })),
+    }));
+  },
   unreadNotificationCount: () => get().notifications.filter((n) => !n.read).length,
 
   activeTab: 'feed',
   setActiveTab: (tab) => set({ activeTab: tab }),
+  resetAppState: () =>
+    set({
+      showSettings: false,
+      activeTab: 'feed',
+      selectedPostId: null,
+      selectedListing: null,
+      selectedSellerId: null,
+      showNotifications: false,
+      showSearch: false,
+      searchQuery: '',
+      isHydrated: false,
+    }),
   showCreateModal: false,
   setShowCreateModal: (show) => set({ showCreateModal: show }),
   createMode: 'post',
   setCreateMode: (mode) => set({ createMode: mode }),
 
-  // Post detail
   selectedPostId: null,
   setSelectedPostId: (id) => set({ selectedPostId: id }),
 
-  // Search
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
   showSearch: false,
@@ -460,7 +425,6 @@ export const useStore = create<AppState>((set, get) => ({
   setResolvedTheme: (theme) => set({ theme }),
   toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
 
-  // Settings
   showSettings: false,
   setShowSettings: (show) => set({ showSettings: show }),
   pushNotificationsEnabled: true,

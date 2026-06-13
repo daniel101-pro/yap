@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { signOut, useSession } from 'next-auth/react';
 import { useStore } from '@/lib/store';
 import {
   Moon,
@@ -43,14 +44,14 @@ function ToggleSwitch({
 }
 
 export default function SettingsPage() {
+  const { data: session } = useSession();
   const {
     theme,
     themePreference,
     setTheme,
     setThemePreference,
     setShowSettings,
-    email,
-    logout,
+    resetAppState,
     pushNotificationsEnabled,
     setPushNotificationsEnabled,
     emailNotificationsEnabled,
@@ -64,12 +65,14 @@ export default function SettingsPage() {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const handleSignOut = () => {
-    logout();
+  const handleSignOut = async () => {
+    resetAppState();
+    await signOut({ callbackUrl: '/' });
   };
 
-  const handleDeleteAccount = () => {
-    logout();
+  const handleDeleteAccount = async () => {
+    resetAppState();
+    await signOut({ callbackUrl: '/' });
   };
 
   return (
@@ -105,7 +108,7 @@ export default function SettingsPage() {
                   <Mail size={18} className="text-muted" />
                   <span className="text-sm text-foreground">Email</span>
                 </div>
-                <span className="text-sm text-muted">{email || 'user@exeter.ac.uk'}</span>
+                <span className="text-sm text-muted">{session?.user?.email ?? 'user@exeter.ac.uk'}</span>
               </div>
               <div className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-3">

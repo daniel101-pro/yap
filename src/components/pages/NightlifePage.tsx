@@ -11,7 +11,7 @@ type NightlifeView = 'tickets' | 'map';
 const NightlifeMap = dynamic(() => import('./NightlifeMap'), { ssr: false });
 
 export default function NightlifePage() {
-  const { nightlifeTickets, addNightlifeTicket, nightlifePins, addNightlifePin, email } = useStore();
+  const { nightlifeTickets, addNightlifeTicket, nightlifePins, addNightlifePin } = useStore();
   const [view, setView] = useState<NightlifeView>('tickets');
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [showPartyForm, setShowPartyForm] = useState(false);
@@ -48,10 +48,10 @@ export default function NightlifePage() {
   const clubs = mappablePins.filter((pin) => pin.type === 'nightclub');
   const houseParties = mappablePins.filter((pin) => pin.type === 'house-party');
 
-  const handleSellTicket = (e: FormEvent) => {
+  const handleSellTicket = async (e: FormEvent) => {
     e.preventDefault();
     if (!ticketTitle.trim() || !ticketVenue.trim() || !ticketPrice.trim()) return;
-    addNightlifeTicket({
+    await addNightlifeTicket({
       title: ticketTitle.trim(),
       venue: ticketVenue.trim(),
       price: Number(ticketPrice),
@@ -70,8 +70,6 @@ export default function NightlifePage() {
     try {
       const response = await fetch('/api/stripe/connect/onboard', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
       });
       const data = await response.json();
       if (data?.url) {
@@ -94,7 +92,7 @@ export default function NightlifePage() {
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticket }),
+        body: JSON.stringify({ ticketId }),
       });
       const data = await response.json();
       if (data?.url) {
@@ -118,8 +116,8 @@ export default function NightlifePage() {
     }
     setIsAddingParty(true);
 
-    const submitWithCoords = (lat: number, lng: number) => {
-      addNightlifePin({
+    const submitWithCoords = async (lat: number, lng: number) => {
+      await addNightlifePin({
         name: partyName.trim(),
         type: 'house-party',
         address: partyAddress.trim(),

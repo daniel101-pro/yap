@@ -72,15 +72,15 @@ export default function CreatePostModal() {
     e.target.value = '';
   };
 
-  const handleSubmitPost = () => {
+  const handleSubmitPost = async () => {
     if (!content.trim() && postMedia.length === 0) return;
-    addPost(content.trim(), category, postMedia);
+    await addPost(content.trim(), category, postMedia);
     clearComposer();
   };
 
-  const handleSubmitListing = () => {
+  const handleSubmitListing = async () => {
     if (!title.trim() || !price) return;
-    addListing({
+    await addListing({
       title: title.trim(),
       description: description.trim(),
       price: parseFloat(price),

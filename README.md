@@ -46,3 +46,35 @@ STRIPE_SECRET_KEY=sk_live_or_test_xxx
 The app now provides:
 - `POST /api/stripe/connect/onboard` for seller payout onboarding (Stripe Connect Express)
 - `POST /api/stripe/checkout` for buyer ticket checkout sessions
+
+## Auth Setup
+
+YAP uses email + 6-digit code auth. Only `@exeter.ac.uk` emails are allowed.
+
+1. Copy `env.example` to `.env` and fill in values.
+2. Install dependencies and set up the database:
+
+```bash
+npm install
+npx prisma migrate dev --name init
+```
+
+3. **Email (pick one):**
+   - **SMTP (easiest for dev)** — sends to any `@exeter.ac.uk` via Gmail:
+     ```bash
+     SMTP_HOST=smtp.gmail.com
+     SMTP_PORT=587
+     SMTP_USER=you@gmail.com
+     SMTP_PASS=your-16-char-app-password
+     SMTP_FROM="YAP <you@gmail.com>"
+     ```
+     Create a Gmail [App Password](https://myaccount.google.com/apppasswords) (requires 2FA).
+   - **Resend (production)** — verify your own domain at [resend.com/domains](https://resend.com/domains). The test sender `onboarding@resend.dev` cannot email `@exeter.ac.uk` addresses.
+
+4. Generate `AUTH_SECRET`: `openssl rand -base64 32`
+
+```bash
+npm run dev
+```
+
+Sign up with your Exeter email — you'll receive a magic link to verify and sign in.

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useSession } from 'next-auth/react';
 import { useStore } from '@/lib/store';
 import HeroSection from '@/components/landing/HeroSection';
 import TopBar from '@/components/layout/TopBar';
@@ -15,8 +16,8 @@ import SettingsPage from '@/components/pages/SettingsPage';
 import NotificationsPage from '@/components/pages/NotificationsPage';
 
 export default function Home() {
+  const { data: session, status } = useSession();
   const {
-    isAuthenticated,
     activeTab,
     theme,
     themePreference,
@@ -24,6 +25,10 @@ export default function Home() {
     setResolvedTheme,
     showSettings,
     showNotifications,
+    hydrateFromServer,
+    isHydrated,
+    isHydrating,
+    setActiveTab,
   } = useStore();
 
   useEffect(() => {
@@ -65,7 +70,29 @@ export default function Home() {
     }
   }, [theme]);
 
-  if (!isAuthenticated) {
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    hydrateFromServer();
+  }, [status, hydrateFromServer]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab === 'feed' || tab === 'market' || tab === 'nightlife' || tab === 'profile') {
+      setActiveTab(tab);
+    }
+  }, [setActiveTab]);
+
+  if (status === 'loading' || (session && !isHydrated && isHydrating)) {
+    return (
+      <div className="min-h-dvh bg-[#0A0A0A] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-exeter border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session) {
     return (
       <div className="dark">
         <HeroSection />

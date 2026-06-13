@@ -1,26 +1,109 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, ChevronLeft, EyeOff, ShoppingBag, ShieldCheck, Mail, X } from 'lucide-react';
-import { useStore } from '@/lib/store';
+import { ArrowRight, EyeOff, ShoppingBag, ShieldCheck, Mail, X } from 'lucide-react';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { isExeterEmail } from '@/lib/auth-utils';
 
 export default function HeroSection() {
-  const { email, setEmail, login } = useStore();
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
   const [step, setStep] = useState<'hero' | 'email' | 'verify'>('hero');
   const [emailError, setEmailError] = useState('');
+  const [verifyError, setVerifyError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('auth') === 'verify') {
+      setStep('verify');
+    }
+    if (params.get('auth') === 'error') {
+      setEmailError('Sign-in failed. Use your @exeter.ac.uk email.');
+      setStep('email');
+    }
+  }, []);
 
   const { scrollYProgress } = useScroll({ target: containerRef });
   const overlayOpacity = useTransform(scrollYProgress, [0, 0.5, 1], [0.3, 0.7, 1]);
 
-  const handleEmailSubmit = () => {
-    if (!email.endsWith('@exeter.ac.uk')) {
+  const handleEmailSubmit = async () => {
+    const normalized = email.trim().toLowerCase();
+    if (!isExeterEmail(normalized)) {
       setEmailError('Must be an @exeter.ac.uk email');
       return;
     }
+
     setEmailError('');
-    setStep('verify');
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/auth/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalized }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const msg = data.error ?? 'Could not send code. Try again in a moment.';
+        if (step === 'verify') setVerifyError(msg);
+        else setEmailError(msg);
+        return;
+      }
+
+      setCode('');
+      setVerifyError('');
+      setStep('verify');
+    } catch {
+      setEmailError('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    const normalized = email.trim().toLowerCase();
+    const trimmedCode = code.trim();
+
+    if (!/^\d{6}$/.test(trimmedCode)) {
+      setVerifyError('Enter the 6-digit code from your email.');
+      return;
+    }
+
+    setVerifyError('');
+    setIsVerifying(true);
+
+    try {
+      const result = await signIn('email-code', {
+        email: normalized,
+        code: trimmedCode,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setVerifyError('Invalid or expired code. Try again or request a new one.');
+        return;
+      }
+
+      router.refresh();
+    } catch {
+      setVerifyError('Something went wrong. Please try again.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setVerifyError('');
+    setCode('');
+    await handleEmailSubmit();
   };
 
   const showModal = step === 'email' || step === 'verify';
@@ -308,9 +391,10 @@ export default function HeroSection() {
 
                     <button
                       onClick={handleEmailSubmit}
-                      className="w-full bg-white text-[#0A0A0A] py-4 rounded-full font-semibold text-[15px] tracking-[-0.01em] hover:bg-white/90 transition-all duration-200 min-h-[52px]"
+                      disabled={isSubmitting}
+                      className="w-full bg-white text-[#0A0A0A] py-4 rounded-full font-semibold text-[15px] tracking-[-0.01em] hover:bg-white/90 transition-all duration-200 min-h-[52px] disabled:opacity-60"
                     >
-                      Continue
+                      {isSubmitting ? 'Sending code…' : 'Continue'}
                     </button>
                   </div>
                 </motion.div>
@@ -346,19 +430,63 @@ export default function HeroSection() {
                   </motion.div>
 
                   <h2 className="text-[28px] font-black tracking-[-0.02em] text-white mb-2">
-                    Check your inbox
+                    Enter your code
                   </h2>
-                  <p className="text-[14px] text-white/40 mb-1">We sent a magic link to</p>
-                  <p className="text-[14px] font-semibold text-exeter-glow mb-10">{email}</p>
+                  <p className="text-[14px] text-white/40 mb-1">We sent a 6-digit code to</p>
+                  <p className="text-[14px] font-semibold text-exeter-glow mb-6">{email}</p>
+
+                  <div className="mb-4">
+                    <label htmlFor="code-input" className="text-[11px] font-semibold text-white/30 uppercase tracking-[0.1em] mb-2.5 block text-left">
+                      Verification Code
+                    </label>
+                    <input
+                      id="code-input"
+                      value={code}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setCode(digits);
+                        setVerifyError('');
+                      }}
+                      placeholder="000000"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      onKeyDown={(e) => e.key === 'Enter' && handleVerifyCode()}
+                      className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 text-[24px] text-white text-center tracking-[0.3em] font-bold placeholder:text-white/20 focus:outline-none focus:border-exeter-glow/50 focus:bg-white/[0.08] transition-all duration-300 min-h-[52px]"
+                    />
+                  </div>
 
                   <button
-                    onClick={() => login()}
-                    className="w-full bg-white text-[#0A0A0A] py-4 rounded-full font-semibold text-[15px] tracking-[-0.01em] hover:bg-white/90 transition-all duration-200 min-h-[52px] mb-3"
+                    onClick={handleVerifyCode}
+                    disabled={isVerifying || code.length !== 6}
+                    className="w-full bg-white text-[#0A0A0A] py-4 rounded-full font-semibold text-[15px] tracking-[-0.01em] hover:bg-white/90 transition-all duration-200 min-h-[52px] mb-3 disabled:opacity-60"
                   >
-                    I&apos;ve verified (demo)
+                    {isVerifying ? 'Verifying…' : 'Continue'}
+                  </button>
+                  {verifyError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      role="alert"
+                      className="text-[12px] text-red-400 font-medium mb-3"
+                    >
+                      {verifyError}
+                    </motion.p>
+                  )}
+                  <button
+                    onClick={handleResendCode}
+                    disabled={isSubmitting}
+                    className="text-[13px] text-white/30 hover:text-white/60 transition-colors duration-200 min-h-[44px] mb-1 disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Sending…' : 'Resend code'}
                   </button>
                   <button
-                    onClick={() => setStep('email')}
+                    onClick={() => {
+                      setVerifyError('');
+                      setCode('');
+                      setStep('email');
+                    }}
                     className="text-[13px] text-white/30 hover:text-white/60 transition-colors duration-200 min-h-[44px]"
                   >
                     Use a different email
