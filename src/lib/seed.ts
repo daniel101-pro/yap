@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { mockPosts, mockListings, mockSellers } from '@/lib/mock-data';
+import { mockPosts, mockSellers } from '@/lib/mock-data';
 import { toJson } from '@/lib/json';
 
 const DEFAULT_PINS = [
@@ -84,23 +84,6 @@ export async function seedDatabaseIfEmpty() {
         pollOptions: post.poll ? toJson(post.poll.options) : null,
         pollTotalVotes: post.poll?.totalVotes ?? 0,
         createdAt: post.timestamp,
-      },
-    });
-  }
-
-  for (const listing of mockListings) {
-    const sellerId = sellerMap[listing.seller.id] ?? systemUser.id;
-    await prisma.listing.create({
-      data: {
-        sellerId,
-        title: listing.title,
-        description: listing.description,
-        price: listing.price,
-        category: listing.category,
-        images: toJson(listing.images),
-        condition: listing.condition,
-        views: listing.views,
-        createdAt: listing.timestamp,
       },
     });
   }

@@ -75,6 +75,7 @@ export interface Listing {
   reviews: Review[];
   views: number;
   saved: number;
+  isOwn?: boolean;
 }
 
 export interface UserProfile {

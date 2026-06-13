@@ -61,6 +61,8 @@ interface AppState {
   ) => Promise<void>;
   savedListings: string[];
   toggleSaveListing: (listingId: string) => Promise<void>;
+  deleteListing: (listingId: string) => Promise<void>;
+  updateListingSold: (listingId: string, isSold: boolean) => Promise<void>;
 
   nightlifeTickets: NightlifeTicket[];
   addNightlifeTicket: (ticket: Omit<NightlifeTicket, 'id' | 'sellerName' | 'isSold'>) => Promise<void>;
@@ -283,6 +285,31 @@ export const useStore = create<AppState>((set, get) => ({
       listings: state.listings.map((l) =>
         l.id === listingId ? { ...listing, timestamp: new Date(listing.timestamp) } : l,
       ),
+    }));
+  },
+  deleteListing: async (listingId) => {
+    await api(`/api/listings/${listingId}`, { method: 'DELETE' });
+    set((state) => ({
+      listings: state.listings.filter((l) => l.id !== listingId),
+      savedListings: state.savedListings.filter((id) => id !== listingId),
+      selectedListing:
+        state.selectedListing?.id === listingId ? null : state.selectedListing,
+      conversations: state.conversations.filter((c) => c.listingId !== listingId),
+    }));
+  },
+  updateListingSold: async (listingId, isSold) => {
+    const { listing } = await api<{ listing: Listing }>(`/api/listings/${listingId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isSold }),
+    });
+    set((state) => ({
+      listings: state.listings.map((l) =>
+        l.id === listingId ? { ...listing, timestamp: new Date(listing.timestamp) } : l,
+      ),
+      selectedListing:
+        state.selectedListing?.id === listingId
+          ? { ...listing, timestamp: new Date(listing.timestamp) }
+          : state.selectedListing,
     }));
   },
 

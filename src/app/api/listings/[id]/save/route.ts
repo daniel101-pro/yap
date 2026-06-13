@@ -41,7 +41,7 @@ export async function POST(
   });
 
   return NextResponse.json({
-    listing: serializeListing(listing),
+    listing: serializeListing(listing, user.id),
     saved: Boolean(saved),
   });
 }

@@ -268,13 +268,21 @@ export default function ProductDetail({ listing, onBack, onViewSeller }: Product
 
         {/* Bottom sticky bar */}
         <div className="fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-xl border-t border-divider px-4 py-3 flex items-center gap-3 z-50">
-          <button
-            onClick={handleMessageSeller}
-            className="flex-1 py-3.5 bg-exeter hover:bg-exeter-light text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            <MessageCircle size={16} />
-            Message Seller
-          </button>
+          {listing.isOwn ? (
+            <p className="flex-1 py-3.5 text-center text-sm font-medium text-muted">
+              {listing.isSold ? 'Marked as sold — manage from Your shop' : 'Your listing — manage from Your shop'}
+            </p>
+          ) : (
+            <button
+              onClick={handleMessageSeller}
+              disabled={listing.isSold}
+              className="flex-1 py-3.5 bg-exeter hover:bg-exeter-light disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <MessageCircle size={16} />
+              {listing.isSold ? 'Sold' : 'Message Seller'}
+            </button>
+          )}
+          {!listing.isOwn && (
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => toggleSaveListing(listing.id)}
@@ -286,6 +294,7 @@ export default function ProductDetail({ listing, onBack, onViewSeller }: Product
           >
             <Heart size={18} fill={isSaved ? 'currentColor' : 'none'} />
           </motion.button>
+          )}
         </div>
       </motion.div>
 

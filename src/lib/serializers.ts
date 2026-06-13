@@ -82,6 +82,7 @@ export function serializeComment(
 
 export function serializeListing(
   listing: DbListing & { seller: User; _count?: { saves: number } },
+  userId?: string,
 ): Listing {
   const sellerName = listing.seller.anonymousHandle ?? 'Anonymous';
   return {
@@ -95,6 +96,7 @@ export function serializeListing(
     timestamp: listing.createdAt,
     isVerified: true,
     isSold: listing.isSold,
+    isOwn: userId ? listing.sellerId === userId : false,
     sellerKarma: listing.seller.karma,
     seller: {
       id: listing.seller.id,

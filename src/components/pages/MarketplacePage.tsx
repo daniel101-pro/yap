@@ -5,6 +5,7 @@ import { Store, Search } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import ListingCard from '@/components/marketplace/ListingCard';
 import MarketFilter from '@/components/marketplace/MarketFilter';
+import MyListingsSection from '@/components/marketplace/MyListingsSection';
 import ProductDetail from '@/components/marketplace/ProductDetail';
 import SellerProfile from '@/components/marketplace/SellerProfile';
 
@@ -14,6 +15,9 @@ export default function MarketplacePage() {
   let filtered = marketFilter === 'all'
     ? listings
     : listings.filter((l) => l.category === marketFilter);
+
+  // Own listings live in the management section
+  filtered = filtered.filter((l) => !l.isOwn);
 
   // Apply search
   if (searchQuery.trim()) {
@@ -67,6 +71,14 @@ export default function MarketplacePage() {
             {filtered.length} item{filtered.length === 1 ? '' : 's'}
           </span>
         </div>
+      </section>
+
+      <MyListingsSection />
+
+      <section className="px-5 pb-1">
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">
+          Browse campus
+        </h2>
       </section>
 
       <MarketFilter />

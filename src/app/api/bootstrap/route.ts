@@ -32,6 +32,11 @@ export async function GET() {
         },
       }),
       prisma.listing.findMany({
+        where: {
+          seller: {
+            email: { not: { startsWith: 'seed-' } },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         include: {
           seller: true,
@@ -66,7 +71,7 @@ export async function GET() {
 
   return NextResponse.json({
     posts: posts.map((p) => serializePost(p, userId)),
-    listings: listings.map((l) => serializeListing(l)),
+    listings: listings.map((l) => serializeListing(l, userId)),
     nightlifeTickets: nightlifeTickets.map((t) => serializeTicket(t)),
     nightlifePins: nightlifePins.map((p) => serializePin(p)),
     notifications: notifications.map((n) => serializeNotification(n)),

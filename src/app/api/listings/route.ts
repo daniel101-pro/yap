@@ -38,5 +38,5 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  return NextResponse.json({ listing: serializeListing(listing) });
+  return NextResponse.json({ listing: serializeListing(listing, user.id) });
 }
