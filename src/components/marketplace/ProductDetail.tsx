@@ -48,8 +48,8 @@ export default function ProductDetail({ listing, onBack, onViewSeller }: Product
     setActiveImage(index);
   };
 
-  const handleMessageSeller = () => {
-    const convId = startConversation(listing);
+  const handleMessageSeller = async () => {
+    await startConversation(listing);
     setShowMessage(true);
   };
 

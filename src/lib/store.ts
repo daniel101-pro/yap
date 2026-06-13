@@ -21,6 +21,15 @@ interface BootstrapData {
   nightlifePins: NightlifePin[];
   notifications: Notification[];
   savedListingIds: string[];
+  conversations: Conversation[];
+}
+
+function normalizeConversation(c: Conversation): Conversation {
+  return {
+    ...c,
+    lastMessageTime: new Date(c.lastMessageTime),
+    messages: c.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) })),
+  };
 }
 
 interface AppState {
@@ -66,8 +75,8 @@ interface AppState {
   conversations: Conversation[];
   activeConversation: string | null;
   setActiveConversation: (id: string | null) => void;
-  sendMessage: (conversationId: string, content: string) => void;
-  startConversation: (listing: Listing) => string;
+  sendMessage: (conversationId: string, content: string) => Promise<void>;
+  startConversation: (listing: Listing) => Promise<string>;
 
   notifications: Notification[];
   showNotifications: boolean;
@@ -129,6 +138,7 @@ export const useStore = create<AppState>((set, get) => ({
         nightlifePins: data.nightlifePins,
         notifications: data.notifications.map((n) => ({ ...n, timestamp: new Date(n.timestamp) })),
         savedListings: data.savedListingIds,
+        conversations: data.conversations.map(normalizeConversation),
         isHydrated: true,
         isHydrating: false,
       });
@@ -308,66 +318,39 @@ export const useStore = create<AppState>((set, get) => ({
   conversations: [],
   activeConversation: null,
   setActiveConversation: (id) => set({ activeConversation: id }),
-  sendMessage: (conversationId, content) =>
+  sendMessage: async (conversationId, content) => {
+    const { message } = await api<{ message: Message }>(
+      `/api/conversations/${conversationId}/messages`,
+      { method: 'POST', body: JSON.stringify({ content }) },
+    );
+    const normalized = { ...message, timestamp: new Date(message.timestamp) };
     set((state) => ({
       conversations: state.conversations.map((conv) => {
         if (conv.id !== conversationId) return conv;
-        const newMsg: Message = {
-          id: `m${Date.now()}`,
-          senderId: 'self',
-          senderName: 'You',
-          content,
-          timestamp: new Date(),
-          isOwn: true,
-        };
         return {
           ...conv,
-          messages: [...conv.messages, newMsg],
+          messages: [...conv.messages, normalized],
           lastMessage: content,
           lastMessageTime: new Date(),
         };
       }),
-    })),
-  startConversation: (listing) => {
-    const state = get();
-    const existing = state.conversations.find((c) => c.listingId === listing.id);
-    if (existing) {
-      set({ activeConversation: existing.id });
-      return existing.id;
-    }
-    const id = `conv${Date.now()}`;
-    const greeting: Message = {
-      id: `m${Date.now()}`,
-      senderId: 'self',
-      senderName: 'You',
-      content: `Hi! Is "${listing.title}" still available?`,
-      timestamp: new Date(),
-      isOwn: true,
-    };
-    const reply: Message = {
-      id: `m${Date.now() + 1}`,
-      senderId: listing.seller.id,
-      senderName: listing.seller.name,
-      content: 'Yes it is! When would you like to come see it?',
-      timestamp: new Date(Date.now() + 500),
-      isOwn: false,
-    };
-    const conv: Conversation = {
-      id,
-      listingId: listing.id,
-      listingTitle: listing.title,
-      sellerId: listing.seller.id,
-      sellerName: listing.seller.name,
-      messages: [greeting, reply],
-      lastMessage: reply.content,
-      lastMessageTime: reply.timestamp,
-      unread: 1,
-    };
-    set((state) => ({
-      conversations: [...state.conversations, conv],
-      activeConversation: id,
     }));
-    return id;
+  },
+  startConversation: async (listing) => {
+    const initialMessage = `Hi! Is "${listing.title}" still available?`;
+    const { conversation } = await api<{ conversation: Conversation }>('/api/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ listingId: listing.id, initialMessage }),
+    });
+    const normalized = normalizeConversation(conversation);
+    set((state) => ({
+      conversations: [
+        normalized,
+        ...state.conversations.filter((c) => c.id !== normalized.id),
+      ],
+      activeConversation: normalized.id,
+    }));
+    return normalized.id;
   },
 
   notifications: [],

@@ -29,9 +29,9 @@ export default function MessageSheet({ conversationId, onClose }: MessageSheetPr
 
   if (!conversation) return null;
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!newMessage.trim()) return;
-    sendMessage(conversationId, newMessage.trim());
+    await sendMessage(conversationId, newMessage.trim());
     setNewMessage('');
   };
 

@@ -25,6 +25,8 @@
 *.pem
 prisma/dev.db
 prisma/dev.db-journal
+public/uploads/*
+!public/uploads/.gitkeep
 
 # debug
 npm-debug.log*

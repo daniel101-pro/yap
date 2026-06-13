@@ -30,6 +30,7 @@ export default function CreatePostModal() {
   const [condition, setCondition] = useState<'new' | 'like-new' | 'good' | 'fair'>('good');
   const [postMedia, setPostMedia] = useState<{ type: 'image' | 'video'; url: string }[]>([]);
   const [listingImages, setListingImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const postMediaInputRef = useRef<HTMLInputElement>(null);
   const listingImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,23 +54,45 @@ export default function CreatePostModal() {
     clearComposer();
   };
 
-  const handlePostMediaPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    const next = files.slice(0, 4).map((file) => ({
-      type: file.type.startsWith('video/') ? 'video' as const : 'image' as const,
-      url: URL.createObjectURL(file),
-    }));
-    setPostMedia((prev) => [...prev, ...next].slice(0, 4));
-    e.target.value = '';
+  const uploadFile = async (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Upload failed');
+    return data as { url: string; type: 'image' | 'video' };
   };
 
-  const handleListingImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePostMediaPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    const next = files.slice(0, 6).map((file) => URL.createObjectURL(file));
-    setListingImages((prev) => [...prev, ...next].slice(0, 6));
-    e.target.value = '';
+    setIsUploading(true);
+    try {
+      const uploaded = await Promise.all(files.slice(0, 4).map((file) => uploadFile(file)));
+      setPostMedia((prev) =>
+        [...prev, ...uploaded.map((u) => ({ type: u.type, url: u.url }))].slice(0, 4),
+      );
+    } catch {
+      alert('Could not upload media. Try a smaller image or video.');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleListingImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setIsUploading(true);
+    try {
+      const uploaded = await Promise.all(files.slice(0, 6).map((file) => uploadFile(file)));
+      setListingImages((prev) => [...prev, ...uploaded.map((u) => u.url)].slice(0, 6));
+    } catch {
+      alert('Could not upload images. Try smaller files.');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
   };
 
   const handleSubmitPost = async () => {
@@ -91,7 +114,11 @@ export default function CreatePostModal() {
     clearComposer();
   };
 
-  const canSubmit = createMode === 'post' ? content.trim().length > 0 || postMedia.length > 0 : title.trim().length > 0 && price;
+  const canSubmit =
+    !isUploading &&
+    (createMode === 'post'
+      ? content.trim().length > 0 || postMedia.length > 0
+      : title.trim().length > 0 && price);
   const charPercent = Math.min((content.length / 500) * 100, 100);
 
   return (

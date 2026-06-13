@@ -36,6 +36,11 @@ export async function POST(request: NextRequest) {
     const origin = request.headers.get('origin') ?? 'http://localhost:3000';
     const amount = Math.max(1, Math.round(ticket.price * 100));
 
+    await prisma.nightlifeTicket.update({
+      where: { id: ticketId },
+      data: { status: 'reserved' },
+    });
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
       success_url: `${origin}/?tab=nightlife&checkout=success`,

@@ -4,6 +4,14 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { getSessionUser } from '@/lib/auth-session';
 
+const EXT_MAP: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'video/mp4': '.mp4',
+  'video/quicktime': '.mov',
+};
 const MAX_BYTES = 8 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   'image/jpeg',
@@ -35,7 +43,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'File too large (max 8MB)' }, { status: 400 });
   }
 
-  const ext = file.type.startsWith('video/') ? '.mp4' : '.jpg';
+  const ext = EXT_MAP[file.type] ?? '.bin';
   const filename = `${randomUUID()}${ext}`;
   const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
 

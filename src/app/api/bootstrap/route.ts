@@ -8,6 +8,7 @@ import {
   serializePin,
   serializeNotification,
 } from '@/lib/serializers';
+import { serializeConversation } from '@/lib/serializers-messages';
 import { seedDatabaseIfEmpty } from '@/lib/seed';
 
 export async function GET() {
@@ -20,7 +21,7 @@ export async function GET() {
 
   const userId = user.id;
 
-  const [posts, listings, nightlifeTickets, nightlifePins, notifications, saves] =
+  const [posts, listings, nightlifeTickets, nightlifePins, notifications, saves, conversations] =
     await Promise.all([
       prisma.post.findMany({
         orderBy: { createdAt: 'desc' },
@@ -51,6 +52,16 @@ export async function GET() {
         where: { userId },
         select: { listingId: true },
       }),
+      prisma.conversation.findMany({
+        where: { OR: [{ buyerId: userId }, { sellerId: userId }] },
+        orderBy: { lastMessageAt: 'desc' },
+        include: {
+          listing: { select: { title: true } },
+          buyer: true,
+          seller: true,
+          messages: { orderBy: { createdAt: 'asc' }, take: 50, include: { sender: true } },
+        },
+      }),
     ]);
 
   return NextResponse.json({
@@ -60,5 +71,6 @@ export async function GET() {
     nightlifePins: nightlifePins.map((p) => serializePin(p)),
     notifications: notifications.map((n) => serializeNotification(n)),
     savedListingIds: saves.map((s) => s.listingId),
+    conversations: conversations.map((c) => serializeConversation(c, userId)),
   });
 }
