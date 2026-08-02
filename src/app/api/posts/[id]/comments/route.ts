@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
 import { serializeComment } from '@/lib/serializers';
 import { createNotification } from '@/lib/notifications';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { getBlockedAuthorIds } from '@/lib/moderation';
 
 export async function GET(
   _request: NextRequest,
@@ -19,13 +21,21 @@ export async function GET(
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
+  const blockedAuthorIds = await getBlockedAuthorIds(user.id);
+  const visible = {
+    hiddenAt: null,
+    authorId: { notIn: blockedAuthorIds },
+    author: { isBanned: false },
+  };
+
   const comments = await prisma.comment.findMany({
-    where: { postId: id, parentId: null },
+    where: { postId: id, parentId: null, ...visible },
     orderBy: { createdAt: 'desc' },
     include: {
       replies: {
+        where: visible,
         orderBy: { createdAt: 'asc' },
-        include: { replies: true },
+        include: { replies: { where: visible } },
       },
     },
   });
@@ -42,6 +52,11 @@ export async function POST(
   const user = await getSessionUser();
   if (!user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const limit = checkRateLimit(`create-comment:${user.id}`, 20, 10 * 60 * 1000);
+  if (!limit.ok) {
+    return NextResponse.json({ error: 'You are commenting too fast. Please slow down.' }, { status: 429 });
   }
 
   const { id } = await params;

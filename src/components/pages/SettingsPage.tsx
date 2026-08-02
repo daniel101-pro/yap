@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signOut, useSession } from 'next-auth/react';
 import { useStore } from '@/lib/store';
@@ -18,6 +18,7 @@ import {
   Trash2,
   ChevronRight,
   ChevronLeft,
+  UserX,
 } from 'lucide-react';
 
 function ToggleSwitch({
@@ -61,11 +62,28 @@ export default function SettingsPage() {
     setShowActivityStatus,
     anonymousByDefault,
     setAnonymousByDefault,
+    blockedUsers,
+    fetchBlockedUsers,
+    unblockUser,
   } = useStore();
 
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchBlockedUsers();
+  }, [fetchBlockedUsers]);
+
+  const handleUnblock = async (id: string) => {
+    setUnblockingId(id);
+    try {
+      await unblockUser(id);
+    } finally {
+      setUnblockingId(null);
+    }
+  };
 
   const handleSignOut = async () => {
     resetAppState();
@@ -249,6 +267,39 @@ export default function SettingsPage() {
                   onToggle={() => setAnonymousByDefault(!anonymousByDefault)}
                 />
               </div>
+            </div>
+          </section>
+
+          {/* Blocked Accounts */}
+          <section>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted mb-2 px-1">
+              Blocked Accounts
+            </h2>
+            <div className="overflow-hidden rounded-2xl bg-surface/60">
+              {blockedUsers.length === 0 ? (
+                <div className="px-4 py-3.5 text-sm text-muted">
+                  You haven&apos;t blocked anyone
+                </div>
+              ) : (
+                blockedUsers.map((u, i) => (
+                  <div key={u.id}>
+                    {i > 0 && <div className="mx-4 h-px bg-divider/45" />}
+                    <div className="flex items-center justify-between px-4 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <UserX size={18} className="text-muted" />
+                        <span className="text-sm text-foreground">{u.handle}</span>
+                      </div>
+                      <button
+                        onClick={() => handleUnblock(u.id)}
+                        disabled={unblockingId === u.id}
+                        className="text-sm font-medium text-exeter disabled:opacity-50"
+                      >
+                        Unblock
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </section>
 

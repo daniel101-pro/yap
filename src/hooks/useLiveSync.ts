@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useStore } from '@/lib/store';
 
-const SYNC_INTERVAL_MS = 15000;
+const SYNC_INTERVAL_MS = 30000;
 
 /** Polls the server while the app is open so feed, counts, and messages stay fresh. */
 export function useLiveSync() {

@@ -140,6 +140,14 @@ interface AppState {
   setResolvedTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
 
+  blockedUsers: { id: string; handle: string }[];
+  fetchBlockedUsers: () => Promise<void>;
+  unblockUser: (id: string) => Promise<void>;
+  reportPost: (postId: string, reason?: string) => Promise<void>;
+  reportComment: (commentId: string, reason?: string) => Promise<void>;
+  blockPostAuthor: (postId: string) => Promise<void>;
+  blockCommentAuthor: (commentId: string, postId?: string) => Promise<void>;
+
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
   pushNotificationsEnabled: boolean;
@@ -657,6 +665,39 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
   unreadNotificationCount: () => get().notifications.filter((n) => !n.read).length,
+
+  blockedUsers: [],
+  fetchBlockedUsers: async () => {
+    const { blocked } = await api<{ blocked: { id: string; handle: string }[] }>(
+      '/api/users/blocked',
+    );
+    set({ blockedUsers: blocked });
+  },
+  unblockUser: async (id) => {
+    await api(`/api/users/blocked/${id}`, { method: 'DELETE' });
+    set((state) => ({ blockedUsers: state.blockedUsers.filter((u) => u.id !== id) }));
+  },
+  reportPost: async (postId, reason) => {
+    await api(`/api/posts/${postId}/report`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason ?? '' }),
+    });
+  },
+  reportComment: async (commentId, reason) => {
+    await api(`/api/comments/${commentId}/report`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason ?? '' }),
+    });
+  },
+  blockPostAuthor: async (postId) => {
+    await api(`/api/posts/${postId}/block-author`, { method: 'POST' });
+    await get().syncFromServer();
+  },
+  blockCommentAuthor: async (commentId, postId) => {
+    await api(`/api/comments/${commentId}/block-author`, { method: 'POST' });
+    await get().syncFromServer();
+    if (postId) await get().fetchComments(postId);
+  },
 
   activeTab: 'feed',
   setActiveTab: (tab) => set({ activeTab: tab }),

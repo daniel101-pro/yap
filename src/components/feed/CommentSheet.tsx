@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowUp, ChevronUp, CornerDownRight } from 'lucide-react';
+import { X, ArrowUp, ChevronUp, CornerDownRight, Flag } from 'lucide-react';
 import { Comment } from '@/types';
 import { useStore } from '@/lib/store';
 import { timeAgo } from '@/lib/utils';
@@ -23,8 +23,9 @@ function CommentItem({
   depth?: number;
   onReply: (commentId: string) => void;
 }) {
-  const { upvoteComment } = useStore();
+  const { upvoteComment, reportComment } = useStore();
   const [upvoted, setUpvoted] = useState(false);
+  const [reported, setReported] = useState(false);
 
   const handleUpvote = async () => {
     if (upvoted) return;
@@ -33,6 +34,16 @@ function CommentItem({
       await upvoteComment(postId, comment.id);
     } catch {
       setUpvoted(false);
+    }
+  };
+
+  const handleReport = async () => {
+    if (reported) return;
+    setReported(true);
+    try {
+      await reportComment(comment.id, 'reported from comments');
+    } catch {
+      setReported(false);
     }
   };
 
@@ -88,6 +99,16 @@ function CommentItem({
               Reply
             </button>
           )}
+          <button
+            onClick={handleReport}
+            disabled={reported}
+            className={`flex items-center gap-1 text-[12px] transition-colors ${
+              reported ? 'text-exeter' : 'text-muted-light hover:text-foreground'
+            }`}
+          >
+            <Flag className="w-3 h-3" />
+            {reported ? 'Reported' : 'Report'}
+          </button>
         </div>
       </div>
 

@@ -4,12 +4,18 @@ import { getSessionUser } from '@/lib/auth-session';
 import { ensureAnonymousHandle } from '@/lib/anonymous';
 import { serializeListing } from '@/lib/serializers';
 import { toJson } from '@/lib/json';
+import { checkRateLimit } from '@/lib/rate-limit';
 import type { MarketCategory } from '@/types';
 
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
   if (!user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const limit = checkRateLimit(`create-listing:${user.id}`, 5, 10 * 60 * 1000);
+  if (!limit.ok) {
+    return NextResponse.json({ error: 'You are posting too fast. Please slow down.' }, { status: 429 });
   }
 
   const body = await request.json();

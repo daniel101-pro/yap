@@ -10,6 +10,7 @@ import {
 } from '@/lib/serializers';
 import { serializeConversation } from '@/lib/serializers-messages';
 import { seedDatabaseIfEmpty } from '@/lib/seed';
+import { getBlockedAuthorIds } from '@/lib/moderation';
 
 const sellerInclude = {
   seller: {
@@ -29,6 +30,7 @@ export async function GET() {
   await seedDatabaseIfEmpty();
 
   const userId = user.id;
+  const blockedAuthorIds = await getBlockedAuthorIds(userId);
 
   const [dbUser, posts, listings, nightlifeTickets, nightlifePins, notifications, saves, conversations] =
     await Promise.all([
@@ -38,9 +40,12 @@ export async function GET() {
       }),
       prisma.post.findMany({
         where: {
-          author: { email: { not: { startsWith: 'seed-' } } },
+          author: { email: { not: { startsWith: 'seed-' } }, isBanned: false },
+          authorId: { notIn: blockedAuthorIds },
+          hiddenAt: null,
         },
         orderBy: { createdAt: 'desc' },
+        take: 200,
         include: {
           reactions: true,
           pollVotes: { where: { userId } },
@@ -49,16 +54,23 @@ export async function GET() {
       }),
       prisma.listing.findMany({
         where: {
-          seller: { email: { not: { startsWith: 'seed-' } } },
+          seller: { email: { not: { startsWith: 'seed-' } }, isBanned: false },
+          sellerId: { notIn: blockedAuthorIds },
+          hiddenAt: null,
+          OR: [{ isSold: false }, { sellerId: userId }],
         },
         orderBy: { createdAt: 'desc' },
+        take: 200,
         include: sellerInclude,
       }),
       prisma.nightlifeTicket.findMany({
         where: {
-          seller: { email: { not: { startsWith: 'seed-' } } },
+          seller: { email: { not: { startsWith: 'seed-' } }, isBanned: false },
+          status: 'active',
+          eventDate: { gte: new Date() },
         },
         orderBy: { eventDate: 'asc' },
+        take: 100,
         include: { seller: true },
       }),
       prisma.nightlifePin.findMany({ orderBy: { createdAt: 'desc' } }),

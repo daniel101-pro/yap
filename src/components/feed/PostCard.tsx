@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, MoreHorizontal, Flag, UserX, Trash2 } from 'lucide-react';
 import { Post, Reaction } from '@/types';
 import { useStore } from '@/lib/store';
 import { timeAgo, getCategoryLabel, formatNumber } from '@/lib/utils';
@@ -22,12 +22,53 @@ const reactions: Reaction[] = ['fire', 'cap', 'dead', 'real', 'sus'];
 export default function PostCard({ post: initialPost, index }: PostCardProps) {
   const post = useStore((s) => s.posts.find((p) => p.id === initialPost.id) ?? initialPost);
   const reactToPost = useStore((s) => s.reactToPost);
+  const deletePost = useStore((s) => s.deletePost);
+  const reportPost = useStore((s) => s.reportPost);
+  const blockPostAuthor = useStore((s) => s.blockPostAuthor);
   const isTrending = usePostTrending(initialPost.id);
   const totalReactions = Object.values(post.reactions).reduce((a, b) => a + b, 0);
   const CategoryIcon = getCategoryIcon(post.category);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [showComments, setShowComments] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [menuBusy, setMenuBusy] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleReport = async () => {
+    setMenuBusy(true);
+    try {
+      await reportPost(post.id, 'reported from feed');
+      setFeedback('Reported. Thanks for flagging this.');
+    } catch {
+      setFeedback('Could not report right now.');
+    } finally {
+      setMenuBusy(false);
+      setShowMenu(false);
+    }
+  };
+
+  const handleBlock = async () => {
+    setMenuBusy(true);
+    try {
+      await blockPostAuthor(post.id);
+    } catch {
+      setFeedback('Could not block right now.');
+      setMenuBusy(false);
+      setShowMenu(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setMenuBusy(true);
+    try {
+      await deletePost(post.id);
+    } catch {
+      setFeedback('Could not delete right now.');
+      setMenuBusy(false);
+      setShowMenu(false);
+    }
+  };
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -67,8 +108,74 @@ export default function PostCard({ post: initialPost, index }: PostCardProps) {
               </span>
             )}
           </div>
-          <time className="text-[12px] text-muted-light">{timeAgo(post.timestamp)}</time>
+          <div className="flex items-center gap-2">
+            <time className="text-[12px] text-muted-light">{timeAgo(post.timestamp)}</time>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowMenu((v) => !v)}
+                aria-label="Post options"
+                className="flex h-[28px] w-[28px] items-center justify-center rounded-full text-muted-light transition-colors hover:bg-surface hover:text-foreground"
+              >
+                <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+              </button>
+              <AnimatePresence>
+                {showMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-[55]"
+                      onClick={() => setShowMenu(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-8 z-[56] w-44 overflow-hidden rounded-xl bg-background shadow-2xl ring-1 ring-divider"
+                    >
+                      {post.isOwn ? (
+                        <button
+                          type="button"
+                          disabled={menuBusy}
+                          onClick={handleDelete}
+                          className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13px] font-medium text-red-500 hover:bg-red-500/10 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                          Delete
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            disabled={menuBusy}
+                            onClick={handleReport}
+                            className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13px] font-medium text-foreground hover:bg-surface disabled:opacity-50"
+                          >
+                            <Flag className="h-3.5 w-3.5" strokeWidth={2} />
+                            Report
+                          </button>
+                          <button
+                            type="button"
+                            disabled={menuBusy}
+                            onClick={handleBlock}
+                            className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[13px] font-medium text-red-500 hover:bg-red-500/10 disabled:opacity-50"
+                          >
+                            <UserX className="h-3.5 w-3.5" strokeWidth={2} />
+                            Block user
+                          </button>
+                        </>
+                      )}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         </div>
+
+        {feedback && (
+          <p className="mb-2 text-[11px] font-medium text-exeter">{feedback}</p>
+        )}
 
         {/* Content */}
         {post.content && (
