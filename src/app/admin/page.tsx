@@ -47,31 +47,53 @@ export default async function AdminOverviewPage() {
 
   const resaleVolume = soldTickets.reduce((sum, t) => sum + t.price, 0);
 
+  const iconClass = (accent?: boolean) => `h-5 w-5 ${accent ? 'text-red-500' : 'text-exeter'}`;
+
   const stats: {
     label: string;
     value: number;
     href: string;
-    icon: React.ElementType;
-    accent?: boolean;
+    icon: React.ReactNode;
     prefix?: string;
     suffix?: string;
   }[] = [
-    { label: 'Total users', value: userCount, href: '/admin/users', icon: Users },
-    { label: 'New this week', value: newUsersThisWeek, href: '/admin/users', icon: TrendingUp },
-    { label: 'Banned users', value: bannedCount, href: '/admin/users?filter=banned', icon: Users, accent: bannedCount > 0 },
-    { label: 'Pending reports', value: pendingReportTargets.length, href: '/admin/reports', icon: Flag, accent: pendingReportTargets.length > 0 },
-    { label: 'Posts', value: postCount, href: '/admin/posts', icon: MessageSquare },
-    { label: 'Hidden posts', value: hiddenPostCount, href: '/admin/posts?filter=hidden', icon: MessageSquare, accent: hiddenPostCount > 0 },
-    { label: 'Comments', value: commentCount, href: '/admin/comments', icon: MessageSquare },
+    { label: 'Total users', value: userCount, href: '/admin/users', icon: <Users className={iconClass()} strokeWidth={1.8} /> },
+    { label: 'New this week', value: newUsersThisWeek, href: '/admin/users', icon: <TrendingUp className={iconClass()} strokeWidth={1.8} /> },
+    {
+      label: 'Banned users',
+      value: bannedCount,
+      href: '/admin/users?filter=banned',
+      icon: <Users className={iconClass(bannedCount > 0)} strokeWidth={1.8} />,
+    },
+    {
+      label: 'Pending reports',
+      value: pendingReportTargets.length,
+      href: '/admin/reports',
+      icon: <Flag className={iconClass(pendingReportTargets.length > 0)} strokeWidth={1.8} />,
+    },
+    { label: 'Posts', value: postCount, href: '/admin/posts', icon: <MessageSquare className={iconClass()} strokeWidth={1.8} /> },
+    {
+      label: 'Hidden posts',
+      value: hiddenPostCount,
+      href: '/admin/posts?filter=hidden',
+      icon: <MessageSquare className={iconClass(hiddenPostCount > 0)} strokeWidth={1.8} />,
+    },
+    { label: 'Comments', value: commentCount, href: '/admin/comments', icon: <MessageSquare className={iconClass()} strokeWidth={1.8} /> },
     {
       label: 'Active listings',
       value: activeListingCount,
       href: '/admin/listings',
-      icon: ShoppingBag,
+      icon: <ShoppingBag className={iconClass()} strokeWidth={1.8} />,
       suffix: ` / ${listingCount}`,
     },
-    { label: 'Nightlife tickets', value: ticketCount, href: '/admin/nightlife', icon: PartyPopper },
-    { label: 'Ticket resale volume', value: Math.round(resaleVolume), href: '/admin/nightlife', icon: PartyPopper, prefix: '£' },
+    { label: 'Nightlife tickets', value: ticketCount, href: '/admin/nightlife', icon: <PartyPopper className={iconClass()} strokeWidth={1.8} /> },
+    {
+      label: 'Ticket resale volume',
+      value: Math.round(resaleVolume),
+      href: '/admin/nightlife',
+      icon: <PartyPopper className={iconClass()} strokeWidth={1.8} />,
+      prefix: '£',
+    },
   ];
 
   return (

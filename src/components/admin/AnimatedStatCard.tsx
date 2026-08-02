@@ -8,8 +8,7 @@ interface AnimatedStatCardProps {
   label: string;
   value: number;
   href: string;
-  icon: React.ElementType;
-  accent?: boolean;
+  icon: React.ReactNode;
   index: number;
   prefix?: string;
   suffix?: string;
@@ -19,8 +18,7 @@ export default function AnimatedStatCard({
   label,
   value,
   href,
-  icon: Icon,
-  accent,
+  icon,
   index,
   prefix = '',
   suffix = '',
@@ -48,7 +46,7 @@ export default function AnimatedStatCard({
         href={href}
         className="block rounded-2xl bg-surface/60 p-5 ring-1 ring-divider transition-colors hover:bg-surface hover:ring-exeter/30"
       >
-        <Icon className={`h-5 w-5 ${accent ? 'text-red-500' : 'text-exeter'}`} strokeWidth={1.8} />
+        {icon}
         <p className="mt-4 text-[26px] font-bold tabular-nums text-foreground">
           {prefix}
           {display.toLocaleString()}
