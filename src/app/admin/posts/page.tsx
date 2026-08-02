@@ -70,11 +70,15 @@ export default async function AdminPostsPage({
             </tr>
           </thead>
           <tbody>
-            {posts.map((p) => {
+            {posts.map((p, i) => {
               const reportCount = reportMap.get(p.id) ?? 0;
               const totalReactions = p.reactions.length;
               return (
-                <tr key={p.id} className="border-t border-divider/60 align-top">
+                <tr
+                  key={p.id}
+                  className="row-in border-t border-divider/60 align-top"
+                  style={{ animationDelay: `${Math.min(i * 0.025, 0.3)}s` }}
+                >
                   <td className="max-w-[280px] px-4 py-2.5">
                     <p className="line-clamp-2 text-foreground">{p.content || '(media/poll post)'}</p>
                   </td>

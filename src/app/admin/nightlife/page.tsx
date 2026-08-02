@@ -42,8 +42,12 @@ export default async function AdminNightlifePage() {
               </tr>
             </thead>
             <tbody>
-              {tickets.map((t) => (
-                <tr key={t.id} className="border-t border-divider/60">
+              {tickets.map((t, i) => (
+                <tr
+                  key={t.id}
+                  className="row-in border-t border-divider/60"
+                  style={{ animationDelay: `${Math.min(i * 0.025, 0.3)}s` }}
+                >
                   <td className="px-4 py-2.5 text-foreground">{t.title}</td>
                   <td className="px-4 py-2.5 text-muted">{t.venue}</td>
                   <td className="px-4 py-2.5">
@@ -168,8 +172,12 @@ export default async function AdminNightlifePage() {
               </tr>
             </thead>
             <tbody>
-              {pins.map((p) => (
-                <tr key={p.id} className="border-t border-divider/60">
+              {pins.map((p, i) => (
+                <tr
+                  key={p.id}
+                  className="row-in border-t border-divider/60"
+                  style={{ animationDelay: `${Math.min(i * 0.025, 0.3)}s` }}
+                >
                   <td className="px-4 py-2.5 text-foreground">{p.name}</td>
                   <td className="px-4 py-2.5 text-muted">{p.type}</td>
                   <td className="px-4 py-2.5 text-muted">{p.address}</td>

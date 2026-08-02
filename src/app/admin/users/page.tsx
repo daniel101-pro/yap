@@ -67,8 +67,12 @@ export default async function AdminUsersPage({
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-t border-divider/60">
+            {users.map((u, i) => (
+              <tr
+                key={u.id}
+                className="row-in border-t border-divider/60"
+                style={{ animationDelay: `${Math.min(i * 0.025, 0.3)}s` }}
+              >
                 <td className="px-4 py-2.5">
                   <Link href={`/admin/users/${u.id}`} className="font-medium text-exeter hover:underline">
                     {u.anonymousHandle ?? 'Anonymous'}

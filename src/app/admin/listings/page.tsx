@@ -68,8 +68,12 @@ export default async function AdminListingsPage({
             </tr>
           </thead>
           <tbody>
-            {listings.map((l) => (
-              <tr key={l.id} className="border-t border-divider/60 align-top">
+            {listings.map((l, i) => (
+              <tr
+                key={l.id}
+                className="row-in border-t border-divider/60 align-top"
+                style={{ animationDelay: `${Math.min(i * 0.025, 0.3)}s` }}
+              >
                 <td className="max-w-[220px] px-4 py-2.5">
                   <p className="line-clamp-2 text-foreground">{l.title}</p>
                 </td>

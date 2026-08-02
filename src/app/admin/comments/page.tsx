@@ -68,10 +68,14 @@ export default async function AdminCommentsPage({
             </tr>
           </thead>
           <tbody>
-            {comments.map((c) => {
+            {comments.map((c, i) => {
               const reportCount = reportMap.get(c.id) ?? 0;
               return (
-                <tr key={c.id} className="border-t border-divider/60 align-top">
+                <tr
+                  key={c.id}
+                  className="row-in border-t border-divider/60 align-top"
+                  style={{ animationDelay: `${Math.min(i * 0.025, 0.3)}s` }}
+                >
                   <td className="max-w-[240px] px-4 py-2.5">
                     <p className="line-clamp-2 text-foreground">{c.content}</p>
                   </td>

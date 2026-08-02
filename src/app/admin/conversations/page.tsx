@@ -49,8 +49,12 @@ export default async function AdminConversationsPage({
             </tr>
           </thead>
           <tbody>
-            {conversations.map((c) => (
-              <tr key={c.id} className="border-t border-divider/60">
+            {conversations.map((c, i) => (
+              <tr
+                key={c.id}
+                className="row-in border-t border-divider/60"
+                style={{ animationDelay: `${Math.min(i * 0.025, 0.3)}s` }}
+              >
                 <td className="max-w-[220px] px-4 py-2.5">
                   <p className="line-clamp-1 text-foreground">{c.listing?.title ?? '(listing deleted)'}</p>
                 </td>

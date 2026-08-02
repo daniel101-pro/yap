@@ -127,6 +127,21 @@ body {
   animation: fade-up-blur 0.8s cubic-bezier(0, 0, 0.2, 1) forwards;
 }
 
+/* Admin dashboard — row/card entrance */
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.row-in {
+  animation: row-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* Shimmer */
 @keyframes shimmer {
   0% { transform: translateX(-100%); }

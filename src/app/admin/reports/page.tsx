@@ -55,7 +55,7 @@ export default async function AdminReportsPage() {
           </div>
         )}
 
-        {sortedGroups.map(([key, groupReports]) => {
+        {sortedGroups.map(([key, groupReports], i) => {
           const [targetType, targetId] = key.split(':') as ['post' | 'comment', string];
           const post = targetType === 'post' ? postMap.get(targetId) : undefined;
           const comment = targetType === 'comment' ? commentMap.get(targetId) : undefined;
@@ -66,7 +66,11 @@ export default async function AdminReportsPage() {
           const reasons = groupReports.map((r) => r.reason).filter(Boolean);
 
           return (
-            <div key={key} className="rounded-2xl bg-surface/50 p-4 ring-1 ring-divider">
+            <div
+              key={key}
+              className="row-in rounded-2xl bg-surface/50 p-4 ring-1 ring-divider"
+              style={{ animationDelay: `${Math.min(i * 0.04, 0.3)}s` }}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
