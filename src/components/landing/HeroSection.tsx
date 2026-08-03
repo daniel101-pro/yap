@@ -2,27 +2,32 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, EyeOff, ShoppingBag, ShieldCheck, Mail, X } from 'lucide-react';
+import { ArrowRight, EyeOff, ShoppingBag, ShieldCheck, Mail, Lock, Eye, EyeOff as EyeOffIcon, X } from 'lucide-react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { isExeterEmail } from '@/lib/auth-utils';
 
+type Step = 'hero' | 'email' | 'password' | 'verify';
+
 export default function HeroSection() {
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  const [step, setStep] = useState<'hero' | 'email' | 'verify'>('hero');
+  const [step, setStep] = useState<Step>('hero');
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [verifyError, setVerifyError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('auth') === 'verify') {
-      setStep('verify');
-    }
     if (params.get('auth') === 'error') {
       setEmailError('Sign-in failed. Use your @exeter.ac.uk email.');
       setStep('email');
@@ -32,6 +37,35 @@ export default function HeroSection() {
   const { scrollYProgress } = useScroll({ target: containerRef });
   const overlayOpacity = useTransform(scrollYProgress, [0, 0.5, 1], [0.3, 0.7, 1]);
 
+  const sendCode = async (targetEmail: string) => {
+    setIsSendingCode(true);
+    try {
+      const response = await fetch('/api/auth/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        const msg = data.error ?? 'Could not send code. Try again in a moment.';
+        setVerifyError(msg);
+        return false;
+      }
+
+      setCode('');
+      setPassword('');
+      setVerifyError('');
+      setStep('verify');
+      return true;
+    } catch {
+      setVerifyError('Something went wrong. Please try again.');
+      return false;
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
   const handleEmailSubmit = async () => {
     const normalized = email.trim().toLowerCase();
     if (!isExeterEmail(normalized)) {
@@ -40,32 +74,68 @@ export default function HeroSection() {
     }
 
     setEmailError('');
-    setIsSubmitting(true);
+    setIsCheckingEmail(true);
 
     try {
-      const response = await fetch('/api/auth/send-code', {
+      const response = await fetch('/api/auth/check-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: normalized }),
       });
-
       const data = await response.json();
 
       if (!response.ok) {
-        const msg = data.error ?? 'Could not send code. Try again in a moment.';
-        if (step === 'verify') setVerifyError(msg);
-        else setEmailError(msg);
+        setEmailError(data.error ?? 'Could not verify email. Try again.');
         return;
       }
 
-      setCode('');
-      setVerifyError('');
-      setStep('verify');
+      setIsPasswordReset(false);
+      if (data.hasPassword) {
+        setPassword('');
+        setPasswordError('');
+        setStep('password');
+      } else {
+        await sendCode(normalized);
+      }
     } catch {
       setEmailError('Something went wrong. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setIsCheckingEmail(false);
     }
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!password) {
+      setPasswordError('Enter your password.');
+      return;
+    }
+
+    setPasswordError('');
+    setIsSigningIn(true);
+
+    try {
+      const result = await signIn('email-password', {
+        email: email.trim().toLowerCase(),
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setPasswordError('Incorrect password.');
+        return;
+      }
+
+      router.refresh();
+    } catch {
+      setPasswordError('Something went wrong. Please try again.');
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setIsPasswordReset(true);
+    await sendCode(email.trim().toLowerCase());
   };
 
   const handleVerifyCode = async () => {
@@ -76,6 +146,10 @@ export default function HeroSection() {
       setVerifyError('Enter the 6-digit code from your email.');
       return;
     }
+    if (password.length < 8) {
+      setVerifyError('Choose a password with at least 8 characters.');
+      return;
+    }
 
     setVerifyError('');
     setIsVerifying(true);
@@ -84,6 +158,7 @@ export default function HeroSection() {
       const result = await signIn('email-code', {
         email: normalized,
         code: trimmedCode,
+        password,
         redirect: false,
       });
 
@@ -103,10 +178,10 @@ export default function HeroSection() {
   const handleResendCode = async () => {
     setVerifyError('');
     setCode('');
-    await handleEmailSubmit();
+    await sendCode(email.trim().toLowerCase());
   };
 
-  const showModal = step === 'email' || step === 'verify';
+  const showModal = step === 'email' || step === 'password' || step === 'verify';
 
   return (
     <div ref={containerRef} className="bg-[#0A0A0A] relative">
@@ -391,12 +466,109 @@ export default function HeroSection() {
 
                     <button
                       onClick={handleEmailSubmit}
-                      disabled={isSubmitting}
+                      disabled={isCheckingEmail}
                       className="w-full bg-white text-[#0A0A0A] py-4 rounded-full font-semibold text-[15px] tracking-[-0.01em] hover:bg-white/90 transition-all duration-200 min-h-[52px] disabled:opacity-60"
                     >
-                      {isSubmitting ? 'Sending code…' : 'Continue'}
+                      {isCheckingEmail ? 'Checking…' : 'Continue'}
                     </button>
                   </div>
+                </motion.div>
+              )}
+
+              {step === 'password' && (
+                <motion.div
+                  key="password-modal"
+                  initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.97 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  className="glass-card relative w-full max-w-[420px] p-8 lg:p-10 rounded-3xl z-10"
+                >
+                  {/* Close button */}
+                  <button
+                    onClick={() => setStep('hero')}
+                    className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.06] hover:bg-white/[0.12] transition-colors duration-200"
+                    aria-label="Close"
+                  >
+                    <X className="w-4 h-4 text-white/50" strokeWidth={2} />
+                  </button>
+
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
+                    className="flex justify-center mb-6"
+                  >
+                    <div className="w-16 h-16 rounded-2xl glass-btn-strong flex items-center justify-center">
+                      <Lock className="w-7 h-7 text-exeter-glow" strokeWidth={1.5} />
+                    </div>
+                  </motion.div>
+
+                  <h2 className="text-[28px] font-black tracking-[-0.02em] text-white mb-2 text-center">
+                    Welcome back
+                  </h2>
+                  <p className="text-[14px] font-semibold text-exeter-glow mb-6 text-center">{email}</p>
+
+                  <div className="mb-2">
+                    <label htmlFor="password-input" className="text-[11px] font-semibold text-white/30 uppercase tracking-[0.1em] mb-2.5 block text-left">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="password-input"
+                        value={password}
+                        onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
+                        placeholder="Your password"
+                        type={showPassword ? 'text' : 'password'}
+                        autoFocus
+                        autoComplete="current-password"
+                        onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 pr-12 text-[15px] text-white placeholder:text-white/20 focus:outline-none focus:border-exeter-glow/50 focus:bg-white/[0.08] transition-all duration-300 min-h-[52px]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                      >
+                        {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {passwordError && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        role="alert"
+                        className="text-[12px] text-red-400 font-medium mt-2.5"
+                      >
+                        {passwordError}
+                      </motion.p>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end mb-6">
+                    <button
+                      onClick={handleForgotPassword}
+                      disabled={isSendingCode}
+                      className="text-[12px] text-white/30 hover:text-white/60 transition-colors duration-200 min-h-[32px] disabled:opacity-50"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={handlePasswordSubmit}
+                    disabled={isSigningIn || !password}
+                    className="w-full bg-white text-[#0A0A0A] py-4 rounded-full font-semibold text-[15px] tracking-[-0.01em] hover:bg-white/90 transition-all duration-200 min-h-[52px] mb-3 disabled:opacity-60"
+                  >
+                    {isSigningIn ? 'Signing in…' : 'Sign in'}
+                  </button>
+                  <button
+                    onClick={() => { setStep('email'); setPasswordError(''); }}
+                    className="text-[13px] text-white/30 hover:text-white/60 transition-colors duration-200 min-h-[44px]"
+                  >
+                    Use a different email
+                  </button>
                 </motion.div>
               )}
 
@@ -430,7 +602,7 @@ export default function HeroSection() {
                   </motion.div>
 
                   <h2 className="text-[28px] font-black tracking-[-0.02em] text-white mb-2">
-                    Enter your code
+                    {isPasswordReset ? 'Reset your password' : 'Create your account'}
                   </h2>
                   <p className="text-[14px] text-white/40 mb-1">We sent a 6-digit code to</p>
                   <p className="text-[14px] font-semibold text-exeter-glow mb-6">{email}</p>
@@ -457,12 +629,38 @@ export default function HeroSection() {
                     />
                   </div>
 
+                  <div className="mb-4 text-left">
+                    <label htmlFor="new-password-input" className="text-[11px] font-semibold text-white/30 uppercase tracking-[0.1em] mb-2.5 block">
+                      {isPasswordReset ? 'New password' : 'Create a password'}
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="new-password-input"
+                        value={password}
+                        onChange={(e) => { setPassword(e.target.value); setVerifyError(''); }}
+                        placeholder="At least 8 characters"
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        onKeyDown={(e) => e.key === 'Enter' && handleVerifyCode()}
+                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-2xl px-5 py-4 pr-12 text-[15px] text-white placeholder:text-white/20 focus:outline-none focus:border-exeter-glow/50 focus:bg-white/[0.08] transition-all duration-300 min-h-[52px]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                      >
+                        {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
                   <button
                     onClick={handleVerifyCode}
-                    disabled={isVerifying || code.length !== 6}
+                    disabled={isVerifying || code.length !== 6 || password.length < 8}
                     className="w-full bg-white text-[#0A0A0A] py-4 rounded-full font-semibold text-[15px] tracking-[-0.01em] hover:bg-white/90 transition-all duration-200 min-h-[52px] mb-3 disabled:opacity-60"
                   >
-                    {isVerifying ? 'Verifying…' : 'Continue'}
+                    {isVerifying ? 'Verifying…' : isPasswordReset ? 'Reset password' : 'Create account'}
                   </button>
                   {verifyError && (
                     <motion.p
@@ -476,15 +674,16 @@ export default function HeroSection() {
                   )}
                   <button
                     onClick={handleResendCode}
-                    disabled={isSubmitting}
+                    disabled={isSendingCode}
                     className="text-[13px] text-white/30 hover:text-white/60 transition-colors duration-200 min-h-[44px] mb-1 disabled:opacity-50"
                   >
-                    {isSubmitting ? 'Sending…' : 'Resend code'}
+                    {isSendingCode ? 'Sending…' : 'Resend code'}
                   </button>
                   <button
                     onClick={() => {
                       setVerifyError('');
                       setCode('');
+                      setPassword('');
                       setStep('email');
                     }}
                     className="text-[13px] text-white/30 hover:text-white/60 transition-colors duration-200 min-h-[44px]"
