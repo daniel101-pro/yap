@@ -5,6 +5,7 @@ import { Listing } from '@/types';
 import { getConditionLabel } from '@/lib/utils';
 import { getCategoryIcon } from '@/lib/icons';
 import { useStore } from '@/lib/store';
+import PendingBadge from '@/components/ui/PendingBadge';
 
 interface ListingCardProps {
   listing: Listing;
@@ -26,12 +27,17 @@ export default function ListingCard({ listing, index }: ListingCardProps) {
         ease: [0, 0, 0.2, 1],
       }}
       whileTap={{ scale: 0.98 }}
-      onClick={() => setSelectedListing(listing)}
+      onClick={() => !listing.pending && setSelectedListing(listing)}
       aria-label={`${listing.title}, £${listing.price}`}
-      className="group cursor-pointer"
+      className={`group ${listing.pending ? 'pointer-events-none opacity-75' : 'cursor-pointer'}`}
     >
       {/* Image */}
       <div className="relative mb-3 aspect-[4/5] overflow-hidden rounded-2xl bg-surface transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
+        {listing.pending && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
+            <PendingBadge label="Listing…" />
+          </div>
+        )}
         {hasImage ? (
           <img
             src={listing.images[0]}

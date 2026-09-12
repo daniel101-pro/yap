@@ -11,6 +11,7 @@ import { usePostTrending } from '@/hooks/useFeedRanking';
 import ReactionButton from '@/components/ui/ReactionButton';
 import PollCard from './PollCard';
 import CommentSheet from './CommentSheet';
+import PendingBadge from '@/components/ui/PendingBadge';
 
 interface PostCardProps {
   post: Post;
@@ -91,7 +92,7 @@ export default function PostCard({ post: initialPost, index }: PostCardProps) {
           ease: [0, 0, 0.2, 1],
         }}
         aria-label={`${getCategoryLabel(post.category)} post`}
-        className="py-5 border-b border-divider last:border-b-0"
+        className={`py-5 border-b border-divider last:border-b-0 ${post.pending ? 'opacity-80' : ''}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
@@ -102,7 +103,8 @@ export default function PostCard({ post: initialPost, index }: PostCardProps) {
             <span className="text-[12px] font-semibold text-exeter tracking-[0.04em] uppercase">
               {getCategoryLabel(post.category)}
             </span>
-            {isTrending && (
+            {post.pending && <PendingBadge />}
+            {isTrending && !post.pending && (
               <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-500">
                 Trending
               </span>
@@ -250,6 +252,7 @@ export default function PostCard({ post: initialPost, index }: PostCardProps) {
         )}
 
         {/* Reactions */}
+        {!post.pending && (
         <div className="flex items-center gap-1.5 mt-4 flex-wrap" role="group" aria-label="Reactions">
           {reactions.map((r) => (
             <ReactionButton
@@ -261,11 +264,13 @@ export default function PostCard({ post: initialPost, index }: PostCardProps) {
             />
           ))}
         </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between mt-3">
           <button
-            onClick={() => setShowComments(true)}
+            onClick={() => !post.pending && setShowComments(true)}
+            disabled={post.pending}
             aria-label={`${post.commentCount} comments`}
             className="flex items-center gap-1.5 text-muted-light hover:text-foreground transition-colors duration-200 min-h-[44px] min-w-[44px]"
           >

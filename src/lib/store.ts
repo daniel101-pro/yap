@@ -17,7 +17,6 @@ import { applyOptimisticReaction } from '@/lib/optimistic';
 
 interface UserProfile {
   id: string;
-  email: string;
   anonymousHandle: string;
   karma: number;
 }
@@ -107,8 +106,8 @@ interface AppState {
 
   selectedListing: Listing | null;
   setSelectedListing: (listing: Listing | null) => void;
-  selectedSellerId: string | null;
-  setSelectedSellerId: (id: string | null) => void;
+  selectedSellerHandle: string | null;
+  setSelectedSellerHandle: (handle: string | null) => void;
 
   conversations: Conversation[];
   activeConversation: string | null;
@@ -278,18 +277,48 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
   addPost: async (content, category, media = [], poll) => {
-    const { post } = await api<{ post: Post }>('/api/posts', {
-      method: 'POST',
-      body: JSON.stringify({
-        content,
-        category,
-        media,
-        ...(poll ? { poll: { question: poll.question, options: poll.options } } : {}),
-      }),
-    });
-    set((state) => ({
-      posts: [{ ...post, timestamp: new Date(post.timestamp) }, ...state.posts],
-    }));
+    const tempId = `temp-post-${Date.now()}`;
+    const optimistic: Post = {
+      id: tempId,
+      content: poll?.question ?? content,
+      category,
+      reactions: { fire: 0, cap: 0, dead: 0, real: 0, sus: 0 },
+      commentCount: 0,
+      timestamp: new Date(),
+      isVerified: true,
+      isOwn: true,
+      pending: true,
+      media,
+      poll: poll
+        ? {
+            question: poll.question,
+            options: poll.options.map((text, id) => ({ id, text, votes: 0 })),
+            totalVotes: 0,
+          }
+        : undefined,
+    };
+
+    set((state) => ({ posts: [optimistic, ...state.posts] }));
+
+    try {
+      const { post } = await api<{ post: Post }>('/api/posts', {
+        method: 'POST',
+        body: JSON.stringify({
+          content,
+          category,
+          media,
+          ...(poll ? { poll: { question: poll.question, options: poll.options } } : {}),
+        }),
+      });
+      set((state) => ({
+        posts: state.posts.map((p) =>
+          p.id === tempId ? { ...post, timestamp: new Date(post.timestamp) } : p,
+        ),
+      }));
+    } catch (err) {
+      set((state) => ({ posts: state.posts.filter((p) => p.id !== tempId) }));
+      throw err;
+    }
   },
   reportListing: async (listingId, reason) => {
     await api(`/api/listings/${listingId}/report`, {
@@ -366,6 +395,7 @@ export const useStore = create<AppState>((set, get) => ({
       upvotes: 0,
       replies: [],
       isOP: false,
+      pending: true,
     };
 
     set((state) => {
@@ -481,13 +511,45 @@ export const useStore = create<AppState>((set, get) => ({
   marketFilter: 'all',
   setMarketFilter: (filter) => set({ marketFilter: filter }),
   addListing: async (listing) => {
-    const { listing: created } = await api<{ listing: Listing }>('/api/listings', {
-      method: 'POST',
-      body: JSON.stringify(listing),
-    });
-    set((state) => ({
-      listings: [{ ...created, timestamp: new Date(created.timestamp) }, ...state.listings],
-    }));
+    const tempId = `temp-listing-${Date.now()}`;
+    const profile = get().userProfile;
+    const optimistic: Listing = {
+      id: tempId,
+      ...listing,
+      timestamp: new Date(),
+      isVerified: true,
+      isSold: false,
+      sellerKarma: profile?.karma ?? 0,
+      seller: {
+        handle: profile?.anonymousHandle ?? 'You',
+        name: profile?.anonymousHandle ?? 'You',
+        rating: 5,
+        totalSales: 0,
+        joinDate: new Date(),
+      },
+      reviews: [],
+      views: 0,
+      saved: 0,
+      isOwn: true,
+      pending: true,
+    };
+
+    set((state) => ({ listings: [optimistic, ...state.listings] }));
+
+    try {
+      const { listing: created } = await api<{ listing: Listing }>('/api/listings', {
+        method: 'POST',
+        body: JSON.stringify(listing),
+      });
+      set((state) => ({
+        listings: state.listings.map((l) =>
+          l.id === tempId ? { ...created, timestamp: new Date(created.timestamp) } : l,
+        ),
+      }));
+    } catch (err) {
+      set((state) => ({ listings: state.listings.filter((l) => l.id !== tempId) }));
+      throw err;
+    }
   },
   savedListings: [],
   toggleSaveListing: async (listingId) => {
@@ -590,8 +652,8 @@ export const useStore = create<AppState>((set, get) => ({
 
   selectedListing: null,
   setSelectedListing: (listing) => set({ selectedListing: listing }),
-  selectedSellerId: null,
-  setSelectedSellerId: (id) => set({ selectedSellerId: id }),
+  selectedSellerHandle: null,
+  setSelectedSellerHandle: (handle) => set({ selectedSellerHandle: handle }),
 
   conversations: [],
   activeConversation: null,
@@ -600,7 +662,6 @@ export const useStore = create<AppState>((set, get) => ({
     const tempId = `temp-msg-${Date.now()}`;
     const optimistic: Message = {
       id: tempId,
-      senderId: 'self',
       senderName: 'You',
       content,
       timestamp: new Date(),
@@ -724,7 +785,7 @@ export const useStore = create<AppState>((set, get) => ({
       activeTab: 'feed',
       selectedPostId: null,
       selectedListing: null,
-      selectedSellerId: null,
+      selectedSellerHandle: null,
       showNotifications: false,
       showSearch: false,
       searchQuery: '',

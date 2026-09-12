@@ -11,6 +11,16 @@ const geist = Geist({
 export const metadata: Metadata = {
   title: "YAP — Your Campus, Unfiltered",
   description: "Anonymous social + marketplace for University of Exeter students. Verified. Real. Unfiltered.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "YAP",
+  },
+  icons: {
+    icon: [{ url: "/icons/icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/icons/icon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export const viewport: Viewport = {

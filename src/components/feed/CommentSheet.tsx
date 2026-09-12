@@ -6,6 +6,8 @@ import { X, ArrowUp, ChevronUp, CornerDownRight, Flag, UserX } from 'lucide-reac
 import { Comment } from '@/types';
 import { useStore } from '@/lib/store';
 import { timeAgo } from '@/lib/utils';
+import Spinner from '@/components/ui/Spinner';
+import PendingBadge from '@/components/ui/PendingBadge';
 
 interface CommentSheetProps {
   postId: string;
@@ -85,8 +87,9 @@ function CommentItem({
               <span className="text-[11px] text-muted-light">
                 {timeAgo(comment.timestamp)}
               </span>
+              {comment.pending && <PendingBadge label="Sending" />}
             </div>
-            <p className="text-[14px] text-foreground/90 leading-relaxed ml-8">
+            <p className={`text-[14px] leading-relaxed ml-8 ${comment.pending ? 'text-muted' : 'text-foreground/90'}`}>
               {comment.content}
             </p>
           </div>
@@ -158,6 +161,8 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
   const { comments, addComment, fetchComments, posts } = useStore();
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const postComments = comments[postId] || [];
   const post = posts.find((p) => p.id === postId);
@@ -175,10 +180,22 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
   }, [replyingTo]);
 
   const handleSubmit = async () => {
-    if (!newComment.trim()) return;
-    await addComment(postId, newComment.trim(), replyingTo || undefined);
+    if (!newComment.trim() || isSubmitting) return;
+    const text = newComment.trim();
+    setSubmitError('');
+    setIsSubmitting(true);
     setNewComment('');
+    const replyTarget = replyingTo;
     setReplyingTo(null);
+    try {
+      await addComment(postId, text, replyTarget || undefined);
+    } catch {
+      setSubmitError('Could not send — check your connection and try again.');
+      setNewComment(text);
+      if (replyTarget) setReplyingTo(replyTarget);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -282,28 +299,42 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
             backgroundColor: 'var(--color-background, #FFFFFF)',
           }}
         >
+          {isSubmitting && (
+            <div className="mb-2 flex items-center gap-2 text-[12px] font-medium text-exeter">
+              <Spinner size={12} />
+              Sending comment…
+            </div>
+          )}
+          {submitError && (
+            <p className="mb-2 text-[12px] font-medium text-red-500">{submitError}</p>
+          )}
           <div className="flex items-center gap-3">
             <input
               ref={inputRef}
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               onKeyDown={handleKeyDown}
+              disabled={isSubmitting}
               placeholder={replyingTo ? 'Write a reply...' : 'Add a comment...'}
-              className="flex-1 rounded-full px-4 py-2.5 text-[14px] text-foreground placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-exeter/30"
+              className="flex-1 rounded-full px-4 py-2.5 text-[14px] text-foreground placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-exeter/30 disabled:opacity-60"
               style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}
             />
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              whileTap={newComment.trim() && !isSubmitting ? { scale: 0.9 } : undefined}
               onClick={handleSubmit}
-              disabled={!newComment.trim()}
+              disabled={!newComment.trim() || isSubmitting}
               className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                newComment.trim()
+                newComment.trim() && !isSubmitting
                   ? 'bg-exeter text-white'
                   : 'text-muted-light'
               }`}
-              style={!newComment.trim() ? { backgroundColor: 'var(--color-surface-hover, #e5e7eb)' } : undefined}
+              style={!newComment.trim() || isSubmitting ? { backgroundColor: 'var(--color-surface-hover, #e5e7eb)' } : undefined}
             >
-              <ArrowUp className="w-4 h-4" strokeWidth={2.5} />
+              {isSubmitting ? (
+                <Spinner size={16} className="text-exeter" />
+              ) : (
+                <ArrowUp className="w-4 h-4" strokeWidth={2.5} />
+              )}
             </motion.button>
           </div>
         </div>

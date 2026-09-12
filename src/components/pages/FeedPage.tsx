@@ -34,7 +34,7 @@ export default function FeedPage() {
 
       {!searchQuery.trim() && feedFilter === 'all' && (
         <p className="px-5 pb-2 text-[11px] text-muted-light">
-          Ranked by what&apos;s hot on campus right now
+          New posts first — reacts push posts up
         </p>
       )}
 

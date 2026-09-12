@@ -12,15 +12,15 @@ import ProductDetail from '@/components/marketplace/ProductDetail';
 import SellerProfile from '@/components/marketplace/SellerProfile';
 
 export default function MarketplacePage() {
-  const { marketFilter, selectedListing, setSelectedListing, selectedSellerId, setSelectedSellerId, searchQuery, listings } = useStore();
+  const { marketFilter, selectedListing, setSelectedListing, selectedSellerHandle, setSelectedSellerHandle, searchQuery, listings } = useStore();
   const ranked = useRankedMarketplace(marketFilter, searchQuery, true);
 
   // Seller profile view
-  if (selectedSellerId) {
+  if (selectedSellerHandle) {
     return (
       <SellerProfile
-        sellerId={selectedSellerId}
-        onBack={() => setSelectedSellerId(null)}
+        sellerHandle={selectedSellerHandle}
+        onBack={() => setSelectedSellerHandle(null)}
         listings={listings}
       />
     );
@@ -32,7 +32,7 @@ export default function MarketplacePage() {
       <ProductDetail
         listing={selectedListing}
         onBack={() => setSelectedListing(null)}
-        onViewSeller={(id) => setSelectedSellerId(id)}
+        onViewSeller={(handle) => setSelectedSellerHandle(handle)}
       />
     );
   }

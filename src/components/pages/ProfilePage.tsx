@@ -91,7 +91,7 @@ export default function ProfilePage() {
               transition={{ delay: 0.25 }}
               className="mt-1 text-[11px] text-muted-light"
             >
-              {session?.user?.email ?? userProfile?.email ?? 'user@exeter.ac.uk'}
+              {session?.user?.email ?? 'user@exeter.ac.uk'}
             </motion.p>
           </div>
         </div>

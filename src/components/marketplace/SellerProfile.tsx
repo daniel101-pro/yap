@@ -8,7 +8,7 @@ import { getConditionLabel } from '@/lib/utils';
 import { getCategoryIcon } from '@/lib/icons';
 
 interface SellerProfileProps {
-  sellerId: string;
+  sellerHandle: string;
   onBack: () => void;
   listings: Listing[];
 }
@@ -29,13 +29,13 @@ function StarRating({ rating, size = 14 }: { rating: number; size?: number }) {
   );
 }
 
-export default function SellerProfile({ sellerId, onBack, listings }: SellerProfileProps) {
-  const { setSelectedListing, setSelectedSellerId } = useStore();
-  const sellerListings = listings.filter((l) => l.seller.id === sellerId);
+export default function SellerProfile({ sellerHandle, onBack, listings }: SellerProfileProps) {
+  const { setSelectedListing, setSelectedSellerHandle } = useStore();
+  const sellerListings = listings.filter((l) => l.seller.handle === sellerHandle);
   const seller = sellerListings[0]?.seller;
 
   const handleListingClick = (listing: Listing) => {
-    setSelectedSellerId(null);
+    setSelectedSellerHandle(null);
     setSelectedListing(listing);
   };
 

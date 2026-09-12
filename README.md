@@ -37,15 +37,24 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Stripe Setup (Nightlife Resale)
 
-To use ticket checkout and seller payouts in Nightlife, set:
+1. Create a [Stripe account](https://dashboard.stripe.com/register) and stay in **Test mode**.
+2. [Enable Connect](https://dashboard.stripe.com/test/connect/accounts/overview) → choose **Express** accounts.
+3. Copy your **Secret key** from [API keys](https://dashboard.stripe.com/test/apikeys) into `.env`:
+   ```bash
+   STRIPE_SECRET_KEY=sk_test_...
+   ```
+4. Install the Stripe CLI (macOS: `brew install stripe/stripe-cli/stripe`), then:
+   ```bash
+   stripe login
+   npm run stripe:listen
+   ```
+   Copy the `whsec_...` secret printed by the listener into `.env`:
+   ```bash
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   ```
+5. Restart `npm run dev`. Nightlife → **Payouts** onboard sellers; buyers can checkout tickets.
 
-```bash
-STRIPE_SECRET_KEY=sk_live_or_test_xxx
-```
-
-The app now provides:
-- `POST /api/stripe/connect/onboard` for seller payout onboarding (Stripe Connect Express)
-- `POST /api/stripe/checkout` for buyer ticket checkout sessions
+**Production:** swap in live keys, add webhook endpoint `https://your-domain/api/stripe/webhook` with events `checkout.session.completed` and `checkout.session.expired`, and set the same vars in Vercel.
 
 ## Auth Setup
 

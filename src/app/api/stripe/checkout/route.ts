@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth-session';
 import { prisma } from '@/lib/prisma';
-import { getStripeServerClient } from '@/lib/stripe';
+import {
+  getStripeServerClient,
+  isStripeConfigured,
+  stripeUnavailableMessage,
+  STRIPE_NOT_CONFIGURED,
+} from '@/lib/stripe';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { getTrustedOrigin, publicErrorMessage } from '@/lib/security';
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isStripeConfigured()) {
+      return NextResponse.json({ error: stripeUnavailableMessage() }, { status: 503 });
+    }
+
     const user = await getSessionUser();
     if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -40,7 +49,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cannot buy your own ticket' }, { status: 400 });
     }
 
+    const sellerAccountId = ticket.seller.stripeAccountId;
+    if (!sellerAccountId) {
+      return NextResponse.json(
+        { error: 'Seller has not set up payouts yet. Try another listing.' },
+        { status: 400 },
+      );
+    }
+
     const stripe = getStripeServerClient();
+    const sellerAccount = await stripe.accounts.retrieve(sellerAccountId);
+    if (!sellerAccount.charges_enabled) {
+      return NextResponse.json(
+        { error: 'Seller is still finishing payout setup. Try again later.' },
+        { status: 400 },
+      );
+    }
+
     const origin = getTrustedOrigin(request);
     const amount = Math.max(50, Math.round(ticket.price * 100));
 
@@ -53,10 +78,16 @@ export async function POST(request: NextRequest) {
       const checkoutSession = await stripe.checkout.sessions.create({
         mode: 'payment',
         success_url: `${origin}/?tab=nightlife&checkout=success`,
-        cancel_url: `${origin}/?tab=nightlife&checkout=cancel`,
+        cancel_url: `${origin}/?tab=nightlife&checkout=cancel&ticketId=${ticket.id}`,
+        expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
         metadata: {
           ticketId: ticket.id,
           buyerId: user.id,
+        },
+        payment_intent_data: {
+          transfer_data: {
+            destination: sellerAccountId,
+          },
         },
         line_items: [
           {
@@ -74,16 +105,19 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ url: checkoutSession.url });
-    } catch (error) {
+    } catch (checkoutError) {
       await prisma.nightlifeTicket.updateMany({
         where: { id: ticketId, status: 'reserved' },
         data: { status: 'active' },
       });
-      throw error;
+      throw checkoutError;
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === STRIPE_NOT_CONFIGURED) {
+      return NextResponse.json({ error: stripeUnavailableMessage() }, { status: 503 });
+    }
     return NextResponse.json(
-      { error: publicErrorMessage(null, 'Checkout is unavailable right now') },
+      { error: publicErrorMessage(error, 'Checkout is unavailable right now') },
       { status: 500 },
     );
   }

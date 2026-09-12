@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
 import { MapPin, Ticket, Plus, Sparkles, Wallet } from 'lucide-react';
@@ -38,6 +38,15 @@ export default function NightlifePage() {
   const [isAddingParty, setIsAddingParty] = useState(false);
   const [isConnectingStripe, setIsConnectingStripe] = useState(false);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState<string | null>(null);
+  const [stripeEnabled, setStripeEnabled] = useState<boolean | null>(null);
+  const [stripeNotice, setStripeNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/stripe/status')
+      .then((r) => r.json())
+      .then((d) => setStripeEnabled(Boolean(d.enabled)))
+      .catch(() => setStripeEnabled(false));
+  }, []);
 
   const sortedTickets = useMemo(() => {
     let tickets = [...nightlifeTickets].sort((a, b) => +new Date(a.eventDate) - +new Date(b.eventDate));
@@ -93,20 +102,30 @@ export default function NightlifePage() {
   };
 
   const handleStripeOnboard = async () => {
+    if (stripeEnabled === false) {
+      setStripeNotice('Payouts are not live on this server yet. Check back soon.');
+      return;
+    }
+    setStripeNotice(null);
     setIsConnectingStripe(true);
     try {
       const response = await fetch('/api/stripe/connect/onboard', { method: 'POST' });
       const data = await response.json();
       if (isTrustedStripeRedirect(data?.url)) window.location.href = data.url;
-      else alert(data?.error ?? 'Could not start Stripe onboarding.');
+      else setStripeNotice(data?.error ?? 'Could not start payout setup. Try again in a moment.');
     } catch {
-      alert('Stripe onboarding failed. Please try again.');
+      setStripeNotice('Could not connect to payments. Check your network and try again.');
     } finally {
       setIsConnectingStripe(false);
     }
   };
 
   const handleBuyTicket = async (ticketId: string) => {
+    if (stripeEnabled === false) {
+      setStripeNotice('Checkout is not live yet — ticket browsing still works.');
+      return;
+    }
+    setStripeNotice(null);
     setIsCheckoutLoading(ticketId);
     try {
       const response = await fetch('/api/stripe/checkout', {
@@ -116,9 +135,9 @@ export default function NightlifePage() {
       });
       const data = await response.json();
       if (isTrustedStripeRedirect(data?.url)) window.location.href = data.url;
-      else alert(data?.error ?? 'Could not start checkout.');
+      else setStripeNotice(data?.error ?? 'Could not start checkout.');
     } catch {
-      alert('Checkout failed. Please try again.');
+      setStripeNotice('Checkout failed. Check your connection and try again.');
     } finally {
       setIsCheckoutLoading(null);
     }
@@ -255,20 +274,34 @@ export default function NightlifePage() {
             exit={{ opacity: 0, x: 12 }}
             transition={{ duration: 0.25 }}
           >
+            {stripeEnabled === false && (
+              <div className="mb-4 rounded-xl bg-amber-500/10 px-4 py-3 text-[12px] leading-relaxed text-amber-800 ring-1 ring-amber-500/20 dark:text-amber-200">
+                Ticket payments are coming soon — you can list tickets and use the map, but buy/sell checkout is not wired up on this server yet.
+              </div>
+            )}
+
+            {stripeNotice && (
+              <div className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-[12px] leading-relaxed text-red-600 ring-1 ring-red-500/20 dark:text-red-400">
+                {stripeNotice}
+              </div>
+            )}
+
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-[15px] font-semibold text-foreground">Ticket exchange</h2>
-                <p className="text-[12px] text-muted-light">Safe resale via Stripe</p>
+                <p className="text-[12px] text-muted-light">
+                  {stripeEnabled ? 'Safe resale via Stripe' : 'Browse tickets — payments launching soon'}
+                </p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <button
                   type="button"
                   onClick={handleStripeOnboard}
-                  disabled={isConnectingStripe}
-                  className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-2 text-[11px] font-semibold text-foreground ring-1 ring-divider disabled:opacity-60"
+                  disabled={isConnectingStripe || stripeEnabled === false}
+                  className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-2 text-[11px] font-semibold text-foreground ring-1 ring-divider disabled:opacity-50"
                 >
                   <Wallet className="h-3.5 w-3.5" strokeWidth={2} />
-                  {isConnectingStripe ? '…' : 'Payouts'}
+                  {isConnectingStripe ? '…' : stripeEnabled === false ? 'Payouts soon' : 'Payouts'}
                 </button>
                 <button
                   type="button"

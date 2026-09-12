@@ -7,6 +7,7 @@ import { useStore } from '@/lib/store';
 import { PostCategory, MarketCategory } from '@/types';
 import { getCategoryLabel } from '@/lib/utils';
 import { getCategoryIcon } from '@/lib/icons';
+import Spinner from '@/components/ui/Spinner';
 
 const postCategories: PostCategory[] = ['confessions', 'hot-takes', 'questions', 'memes', 'events', 'rants', 'advice'];
 const marketCategories: MarketCategory[] = ['textbooks', 'electronics', 'furniture', 'clothing', 'bikes', 'tickets', 'other'];
@@ -34,6 +35,8 @@ export default function CreatePostModal() {
   const [postMedia, setPostMedia] = useState<{ type: 'image' | 'video'; url: string }[]>([]);
   const [listingImages, setListingImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const postMediaInputRef = useRef<HTMLInputElement>(null);
   const listingImageInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +61,7 @@ export default function CreatePostModal() {
   };
 
   const handleClose = () => {
+    if (isSubmitting || isUploading) return;
     clearComposer();
   };
 
@@ -74,15 +78,22 @@ export default function CreatePostModal() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setIsUploading(true);
+    setUploadStatus(`Uploading ${files.length > 1 ? `${files.length} files` : 'media'}…`);
     try {
-      const uploaded = await Promise.all(files.slice(0, 4).map((file) => uploadFile(file)));
+      const batch = files.slice(0, 4);
+      const uploaded: { type: 'image' | 'video'; url: string }[] = [];
+      for (let i = 0; i < batch.length; i++) {
+        if (batch.length > 1) setUploadStatus(`Uploading ${i + 1} of ${batch.length}…`);
+        uploaded.push(await uploadFile(batch[i]));
+      }
       setPostMedia((prev) =>
         [...prev, ...uploaded.map((u) => ({ type: u.type, url: u.url }))].slice(0, 4),
       );
     } catch {
-      alert('Could not upload media. Try a smaller image or video.');
+      setSubmitError('Could not upload media. Try a smaller file or check your connection.');
     } finally {
       setIsUploading(false);
+      setUploadStatus(null);
       e.target.value = '';
     }
   };
@@ -91,19 +102,29 @@ export default function CreatePostModal() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setIsUploading(true);
+    setUploadStatus(`Uploading ${files.length > 1 ? `${files.length} photos` : 'photo'}…`);
     try {
-      const uploaded = await Promise.all(files.slice(0, 6).map((file) => uploadFile(file)));
-      setListingImages((prev) => [...prev, ...uploaded.map((u) => u.url)].slice(0, 6));
+      const batch = files.slice(0, 6);
+      const uploaded: string[] = [];
+      for (let i = 0; i < batch.length; i++) {
+        if (batch.length > 1) setUploadStatus(`Uploading photo ${i + 1} of ${batch.length}…`);
+        const result = await uploadFile(batch[i]);
+        uploaded.push(result.url);
+      }
+      setListingImages((prev) => [...prev, ...uploaded].slice(0, 6));
     } catch {
-      alert('Could not upload images. Try smaller files.');
+      setSubmitError('Could not upload photos. Try smaller files or check your connection.');
     } finally {
       setIsUploading(false);
+      setUploadStatus(null);
       e.target.value = '';
     }
   };
 
   const handleSubmitPost = async () => {
+    if (isSubmitting || isUploading) return;
     setSubmitError('');
+    setIsSubmitting(true);
     try {
       if (postFormat === 'poll') {
         const options = pollOptions.map((o) => o.trim()).filter(Boolean);
@@ -118,13 +139,16 @@ export default function CreatePostModal() {
       }
       clearComposer();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not post');
+      setSubmitError(err instanceof Error ? err.message : 'Could not post — check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleSubmitListing = async () => {
-    if (!title.trim() || !price) return;
+    if (!title.trim() || !price || isSubmitting || isUploading) return;
     setSubmitError('');
+    setIsSubmitting(true);
     try {
       await addListing({
         title: title.trim(),
@@ -136,12 +160,15 @@ export default function CreatePostModal() {
       });
       clearComposer();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not create listing');
+      setSubmitError(err instanceof Error ? err.message : 'Could not list item — check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const canSubmit =
     !isUploading &&
+    !isSubmitting &&
     (createMode === 'post'
       ? postFormat === 'poll'
         ? pollQuestion.trim().length > 0 && pollOptions.filter((o) => o.trim()).length >= 2
@@ -182,19 +209,39 @@ export default function CreatePostModal() {
               </button>
 
               <motion.button
-                whileTap={{ scale: 0.95 }}
+                whileTap={canSubmit ? { scale: 0.95 } : undefined}
                 onClick={createMode === 'post' ? handleSubmitPost : handleSubmitListing}
                 disabled={!canSubmit}
-                className={`flex items-center gap-1.5 px-5 py-2.5 rounded-full text-[13px] font-bold transition-all duration-300 ${
+                className={`flex min-w-[88px] items-center justify-center gap-1.5 px-5 py-2.5 rounded-full text-[13px] font-bold transition-all duration-300 ${
                   canSubmit
                     ? 'bg-exeter text-white shadow-lg shadow-exeter/25'
                     : 'bg-[var(--color-surface-hover,#e5e7eb)] text-muted-light'
-                }`}
+                } disabled:opacity-80`}
               >
-                <ArrowUp className="w-3.5 h-3.5" strokeWidth={2.5} />
-                {createMode === 'post' ? 'Yap' : 'List'}
+                {isSubmitting ? (
+                  <>
+                    <Spinner size={14} className="text-white" />
+                    {createMode === 'post' ? 'Posting…' : 'Listing…'}
+                  </>
+                ) : (
+                  <>
+                    <ArrowUp className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    {createMode === 'post' ? 'Yap' : 'List'}
+                  </>
+                )}
               </motion.button>
             </div>
+
+            {(isSubmitting || uploadStatus) && (
+              <div className="mx-5 mb-2 flex items-center gap-2 rounded-xl bg-exeter/8 px-3 py-2.5 text-[12px] font-medium text-exeter ring-1 ring-exeter/15">
+                <Spinner size={14} />
+                {isSubmitting
+                  ? createMode === 'post'
+                    ? 'Sending your yap — hang tight on slow wifi'
+                    : 'Creating your listing — hang tight on slow wifi'
+                  : uploadStatus}
+              </div>
+            )}
 
             {submitError && (
               <p className="px-5 pb-2 text-[13px] font-medium text-red-500">{submitError}</p>

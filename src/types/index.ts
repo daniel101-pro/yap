@@ -17,6 +17,7 @@ export interface Post {
   poll?: Poll;
   imageUrl?: string;
   media?: { type: 'image' | 'video'; url: string }[];
+  pending?: boolean;
 }
 
 export interface Poll {
@@ -40,6 +41,7 @@ export interface Comment {
   upvotes: number;
   replies: Comment[];
   isOP: boolean;
+  pending?: boolean;
 }
 
 export interface Review {
@@ -71,11 +73,12 @@ export interface Listing {
   isVerified: boolean;
   isSold: boolean;
   sellerKarma: number;
-  seller: { id: string; name: string; avatar?: string; rating: number; totalSales: number; joinDate: Date };
+  seller: { handle: string; name: string; avatar?: string; rating: number; totalSales: number; joinDate: Date };
   reviews: Review[];
   views: number;
   saved: number;
   isOwn?: boolean;
+  pending?: boolean;
 }
 
 export interface UserProfile {
@@ -99,7 +102,6 @@ export interface Notification {
 
 export interface Message {
   id: string;
-  senderId: string;
   senderName: string;
   content: string;
   timestamp: Date;
@@ -110,7 +112,6 @@ export interface Conversation {
   id: string;
   listingId: string;
   listingTitle: string;
-  sellerId: string;
   sellerName: string;
   messages: Message[];
   lastMessage: string;

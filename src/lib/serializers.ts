@@ -107,7 +107,7 @@ export function serializeListing(
     isOwn: userId ? listing.sellerId === userId : false,
     sellerKarma: listing.seller.karma,
     seller: {
-      id: listing.seller.id,
+      handle: sellerName,
       name: sellerName,
       rating: 5,
       totalSales,

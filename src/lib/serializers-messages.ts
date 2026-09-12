@@ -16,7 +16,6 @@ export function serializeMessage(
 ): Message {
   return {
     id: message.id,
-    senderId: message.senderId,
     senderName: message.sender.anonymousHandle ?? 'Anonymous',
     content: message.content,
     timestamp: message.createdAt,
@@ -35,7 +34,6 @@ export function serializeConversation(
     id: conv.id,
     listingId: conv.listingId,
     listingTitle: conv.listing.title,
-    sellerId: conv.sellerId,
     sellerName: otherParty.anonymousHandle ?? 'Anonymous',
     messages: (conv.messages ?? []).map((m) => serializeMessage(m, currentUserId)),
     lastMessage: conv.lastMessage,

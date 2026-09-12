@@ -177,7 +177,7 @@ export const mockListings: Listing[] = [
     isVerified: true,
     isSold: false,
     sellerKarma: 234,
-    seller: { id: 's1', name: 'ExeterSeller_42', rating: 4.8, totalSales: 23, joinDate: new Date('2024-10-01') },
+    seller: { handle: 'ExeterSeller_42', name: 'ExeterSeller_42', rating: 4.8, totalSales: 23, joinDate: new Date('2024-10-01') },
     reviews: [
       { id: 'r1', rating: 5, comment: 'Laptop was exactly as described. Super fast transaction, met at the Forum.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), buyerName: 'buyer_23' },
       { id: 'r2', rating: 4, comment: 'Good seller, was a bit late to the meetup but item was in great condition.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 12), buyerName: 'buyer_88' },
@@ -201,7 +201,7 @@ export const mockListings: Listing[] = [
     isVerified: true,
     isSold: false,
     sellerKarma: 567,
-    seller: { id: 's2', name: 'StreathamHills_99', rating: 4.5, totalSales: 12, joinDate: new Date('2025-01-15') },
+    seller: { handle: 'StreathamHills_99', name: 'StreathamHills_99', rating: 4.5, totalSales: 12, joinDate: new Date('2025-01-15') },
     reviews: [
       { id: 'r3', rating: 5, comment: 'Desk was spotless. Even helped me carry it to my car. Legend.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), buyerName: 'buyer_14' },
       { id: 'r4', rating: 5, comment: 'Great value, chair is super comfy for long study sessions.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 8), buyerName: 'buyer_56' },
@@ -225,7 +225,7 @@ export const mockListings: Listing[] = [
     isVerified: true,
     isSold: false,
     sellerKarma: 123,
-    seller: { id: 's3', name: 'FinalYearClearout', rating: 4.9, totalSales: 47, joinDate: new Date('2024-09-20') },
+    seller: { handle: 'FinalYearClearout', name: 'FinalYearClearout', rating: 4.9, totalSales: 47, joinDate: new Date('2024-09-20') },
     reviews: [
       { id: 'r6', rating: 5, comment: 'Perfect condition for highlighted books. The notes in the margins actually helped me revise!', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), buyerName: 'buyer_32' },
     ],
@@ -248,7 +248,7 @@ export const mockListings: Listing[] = [
     isVerified: true,
     isSold: false,
     sellerKarma: 890,
-    seller: { id: 's4', name: 'CyclingDave_Exe', rating: 4.2, totalSales: 8, joinDate: new Date('2025-03-01') },
+    seller: { handle: 'CyclingDave_Exe', name: 'CyclingDave_Exe', rating: 4.2, totalSales: 8, joinDate: new Date('2025-03-01') },
     reviews: [
       { id: 'r7', rating: 4, comment: 'Solid bike, handles the hills well. Gears were a tiny bit stiff but nothing major.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10), buyerName: 'buyer_45' },
       { id: 'r8', rating: 5, comment: 'Brilliant bike for the price. Dave even gave me tips on the best cycle routes around campus.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 20), buyerName: 'buyer_67' },
@@ -271,7 +271,7 @@ export const mockListings: Listing[] = [
     isVerified: true,
     isSold: false,
     sellerKarma: 345,
-    seller: { id: 's1', name: 'ExeterSeller_42', rating: 4.8, totalSales: 23, joinDate: new Date('2024-10-01') },
+    seller: { handle: 'ExeterSeller_42', name: 'ExeterSeller_42', rating: 4.8, totalSales: 23, joinDate: new Date('2024-10-01') },
     reviews: [
       { id: 'r9', rating: 5, comment: 'Tickets transferred instantly. Had a great night out!', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7), buyerName: 'buyer_19' },
     ],
@@ -294,7 +294,7 @@ export const mockListings: Listing[] = [
     isVerified: true,
     isSold: false,
     sellerKarma: 456,
-    seller: { id: 's5', name: 'ExeFreshFits', rating: 3.9, totalSales: 5, joinDate: new Date('2025-06-10') },
+    seller: { handle: 'ExeFreshFits', name: 'ExeFreshFits', rating: 3.9, totalSales: 5, joinDate: new Date('2025-06-10') },
     reviews: [
       { id: 'r10', rating: 5, comment: 'Jacket is mint. Looks brand new honestly.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4), buyerName: 'buyer_82' },
       { id: 'r11', rating: 3, comment: 'Took a while to arrange collection but jacket was fine.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14), buyerName: 'buyer_37' },
@@ -317,7 +317,7 @@ export const mockListings: Listing[] = [
     isVerified: true,
     isSold: false,
     sellerKarma: 67,
-    seller: { id: 's2', name: 'StreathamHills_99', rating: 4.5, totalSales: 12, joinDate: new Date('2025-01-15') },
+    seller: { handle: 'StreathamHills_99', name: 'StreathamHills_99', rating: 4.5, totalSales: 12, joinDate: new Date('2025-01-15') },
     reviews: [
       { id: 'r12', rating: 4, comment: 'Works great, keeps drinks cold. Bit of a scuff on the side but you can\'t see it under the desk.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 6), buyerName: 'buyer_91' },
       { id: 'r13', rating: 5, comment: 'Exactly what I needed for my room in Holland Hall. Cheers!', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 18), buyerName: 'buyer_05' },
@@ -342,7 +342,7 @@ export const mockListings: Listing[] = [
     isVerified: true,
     isSold: false,
     sellerKarma: 789,
-    seller: { id: 's3', name: 'FinalYearClearout', rating: 4.9, totalSales: 47, joinDate: new Date('2024-09-20') },
+    seller: { handle: 'FinalYearClearout', name: 'FinalYearClearout', rating: 4.9, totalSales: 47, joinDate: new Date('2024-09-20') },
     reviews: [
       { id: 'r15', rating: 5, comment: 'Bought the Frank Ocean vinyl — flawless. This seller has impeccable taste.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1), buyerName: 'buyer_63' },
       { id: 'r16', rating: 5, comment: 'Got the Arctic Monkeys collection. All in perfect nick. Would buy again.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 9), buyerName: 'buyer_28' },

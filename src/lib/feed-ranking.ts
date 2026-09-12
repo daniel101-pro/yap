@@ -82,6 +82,37 @@ function postAffinityBoost(
   return 1 + Math.min(raw * 0.12, 0.45);
 }
 
+/** Total reaction count — each one moves the post up one slot in the feed. */
+export function totalReactionCount(post: Post): number {
+  return Object.values(post.reactions).reduce((sum, count) => sum + count, 0);
+}
+
+/**
+ * New posts start at the top (newest first). Each reaction bumps a post up one slot,
+ * so a post with 3 reacts sits three places higher than it would by age alone.
+ */
+function rankPostsByRecencyAndReactions(posts: Post[]): Post[] {
+  const chronological = [...posts].sort((a, b) => {
+    if (a.pending && !b.pending) return -1;
+    if (!a.pending && b.pending) return 1;
+    return b.timestamp.getTime() - a.timestamp.getTime();
+  });
+
+  return chronological
+    .map((post, index) => ({
+      post,
+      effectiveRank: index - totalReactionCount(post),
+    }))
+    .sort((a, b) => {
+      if (a.effectiveRank !== b.effectiveRank) return a.effectiveRank - b.effectiveRank;
+      const reactionsA = totalReactionCount(a.post);
+      const reactionsB = totalReactionCount(b.post);
+      if (reactionsA !== reactionsB) return reactionsB - reactionsA;
+      return b.post.timestamp.getTime() - a.post.timestamp.getTime();
+    })
+    .map(({ post }) => post);
+}
+
 export function scorePost(post: Post, ctx: RankingContext): number {
   const hours = hoursSince(post.timestamp);
   const engagement = postEngagement(post);
@@ -97,59 +128,33 @@ export function scorePost(post: Post, ctx: RankingContext): number {
 export function rankPosts(posts: Post[], ctx: RankingContext, searchQuery?: string): Post[] {
   const q = searchQuery?.trim().toLowerCase();
 
-  const scored = posts.map((post) => {
-    let score = scorePost(post, ctx);
-
-    if (q) {
-      const content = post.content.toLowerCase();
-      const pollQ = post.poll?.question?.toLowerCase() ?? '';
-      let relevance = 0;
-      if (content.includes(q)) relevance += 12;
-      if (pollQ.includes(q)) relevance += 10;
-      if (post.category.includes(q)) relevance += 6;
-      score = relevance > 0 ? relevance * 3 + score * 0.4 : score * 0.15;
-    }
-
-    return { post, score };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  return diversifyPosts(scored.map((s) => s.post));
-}
-
-/** Avoid six confessions in a row — interleave top categories lightly. */
-function diversifyPosts(posts: Post[]): Post[] {
-  if (posts.length <= 4) return posts;
-
-  const result: Post[] = [];
-  const pool = [...posts];
-  let lastCategory: PostCategory | null = null;
-  let streak = 0;
-
-  while (pool.length > 0) {
-    let pickIndex = 0;
-    if (lastCategory && streak >= 2) {
-      const alt = pool.findIndex((p) => p.category !== lastCategory);
-      if (alt !== -1) pickIndex = alt;
-    }
-    const [picked] = pool.splice(pickIndex, 1);
-    result.push(picked);
-    if (picked.category === lastCategory) streak += 1;
-    else {
-      lastCategory = picked.category;
-      streak = 1;
-    }
+  if (!q) {
+    return rankPostsByRecencyAndReactions(posts);
   }
 
-  return result;
+  const scored = posts.map((post) => {
+    const content = post.content.toLowerCase();
+    const pollQ = post.poll?.question?.toLowerCase() ?? '';
+    let relevance = 0;
+    if (content.includes(q)) relevance += 12;
+    if (pollQ.includes(q)) relevance += 10;
+    if (post.category.includes(q)) relevance += 6;
+
+    return { post, relevance };
+  });
+
+  scored.sort((a, b) => {
+    if (a.relevance !== b.relevance) return b.relevance - a.relevance;
+    return b.post.timestamp.getTime() - a.post.timestamp.getTime();
+  });
+
+  return scored.filter((s) => s.relevance > 0).map((s) => s.post);
 }
 
-export function isTrendingPost(post: Post, ctx: RankingContext): boolean {
+export function isTrendingPost(post: Post, _ctx: RankingContext): boolean {
   const hours = hoursSince(post.timestamp);
-  if (hours > 36) return false;
-  const engagement = postEngagement(post);
-  const score = scorePost(post, ctx);
-  return engagement >= 4 && score >= 2.2;
+  if (hours > 48) return false;
+  return totalReactionCount(post) >= 3;
 }
 
 function listingEngagement(listing: Listing): number {

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useStore } from '@/lib/store';
 
 const SYNC_INTERVAL_MS = 30000;
+const SYNC_JITTER_MS = 5000;
 
 /** Polls the server while the app is open so feed, counts, and messages stay fresh. */
 export function useLiveSync() {
@@ -20,7 +21,8 @@ export function useLiveSync() {
     };
 
     syncIfVisible();
-    const interval = setInterval(syncIfVisible, SYNC_INTERVAL_MS);
+    const intervalMs = SYNC_INTERVAL_MS + Math.floor(Math.random() * SYNC_JITTER_MS);
+    const interval = setInterval(syncIfVisible, intervalMs);
     window.addEventListener('focus', syncIfVisible);
     document.addEventListener('visibilitychange', syncIfVisible);
 

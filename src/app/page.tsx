@@ -16,6 +16,7 @@ import SettingsPage from '@/components/pages/SettingsPage';
 import NotificationsPage from '@/components/pages/NotificationsPage';
 import { useLiveSync } from '@/hooks/useLiveSync';
 import AppToast, { type ToastState } from '@/components/ui/AppToast';
+import InstallAppPrompt from '@/components/pwa/InstallAppPrompt';
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -33,6 +34,7 @@ export default function Home() {
     hydrationError,
     loadLocalPreferences,
     setActiveTab,
+    userProfile,
   } = useStore();
 
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -100,6 +102,14 @@ export default function Home() {
     if (checkout === 'success') {
       setToast({ message: 'Ticket purchased! Stripe will email your receipt.', type: 'success' });
     } else if (checkout === 'cancel') {
+      const ticketId = params.get('ticketId');
+      if (ticketId) {
+        fetch('/api/stripe/checkout/release', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketId }),
+        }).catch(() => undefined);
+      }
       setToast({ message: 'Checkout cancelled — ticket released back to the list.', type: 'error' });
     } else if (onboarding === 'complete') {
       setToast({ message: 'Payouts set up — you can sell tickets now!', type: 'success' });
@@ -110,6 +120,7 @@ export default function Home() {
     if (checkout || onboarding) {
       const clean = new URL(window.location.href);
       clean.searchParams.delete('checkout');
+      clean.searchParams.delete('ticketId');
       clean.searchParams.delete('onboarding');
       window.history.replaceState({}, '', clean.pathname + clean.search);
     }
@@ -224,6 +235,7 @@ export default function Home() {
       <BottomNav />
       <CreatePostModal />
       <AppToast toast={toast} onDismiss={() => setToast(null)} />
+      <InstallAppPrompt userId={userProfile?.id} ready={isHydrated} />
     </div>
   );
 }

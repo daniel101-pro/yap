@@ -12,7 +12,7 @@ import MessageSheet from './MessageSheet';
 interface ProductDetailProps {
   listing: Listing;
   onBack: () => void;
-  onViewSeller: (sellerId: string) => void;
+  onViewSeller: (sellerHandle: string) => void;
 }
 
 function StarRating({ rating, size = 14 }: { rating: number; size?: number }) {
@@ -236,7 +236,7 @@ export default function ProductDetail({ listing, onBack, onViewSeller }: Product
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => onViewSeller(listing.seller.id)}
+                onClick={() => onViewSeller(listing.seller.handle)}
                 className="flex-1 py-2.5 text-sm font-medium text-muted bg-surface-hover hover:bg-surface border border-divider rounded-xl transition-colors"
               >
                 View seller&apos;s items

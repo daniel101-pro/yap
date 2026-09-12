@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
+import { checkRateLimit } from '@/lib/rate-limit';
 import {
   serializePost,
   serializeListing,
@@ -22,10 +23,21 @@ const sellerInclude = {
   _count: { select: { saves: true } },
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const user = await getSessionUser();
   if (!user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const limit = checkRateLimit(`bootstrap:${user.id}`, 45, 60 * 1000);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: 'Too many requests. Slow down.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil(limit.retryAfterMs / 1000)) },
+      },
+    );
   }
 
   await seedDatabaseIfEmpty();
@@ -49,7 +61,7 @@ export async function GET() {
     await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, email: true, anonymousHandle: true, karma: true },
+        select: { id: true, anonymousHandle: true, karma: true },
       }),
       prisma.post.findMany({
         where: {
@@ -127,21 +139,27 @@ export async function GET() {
       }),
     ]);
 
-  return NextResponse.json({
-    user: dbUser
-      ? {
-          id: dbUser.id,
-          email: dbUser.email,
-          anonymousHandle: dbUser.anonymousHandle ?? 'Anonymous',
-          karma: dbUser.karma,
-        }
-      : { id: userId, email: user.email ?? '', anonymousHandle: 'Anonymous', karma: 0 },
-    posts: posts.map((p) => serializePost(p, userId)),
-    listings: listings.map((l) => serializeListing(l, userId)),
-    nightlifeTickets: nightlifeTickets.map((t) => serializeTicket(t)),
-    nightlifePins: nightlifePins.map((p) => serializePin(p, userId)),
-    notifications: notifications.map((n) => serializeNotification(n)),
-    savedListingIds: saves.map((s) => s.listingId),
-    conversations: conversations.map((c) => serializeConversation(c, userId)),
-  });
+  return NextResponse.json(
+    {
+      user: dbUser
+        ? {
+            id: dbUser.id,
+            anonymousHandle: dbUser.anonymousHandle ?? 'Anonymous',
+            karma: dbUser.karma,
+          }
+        : { id: userId, anonymousHandle: 'Anonymous', karma: 0 },
+      posts: posts.map((p) => serializePost(p, userId)),
+      listings: listings.map((l) => serializeListing(l, userId)),
+      nightlifeTickets: nightlifeTickets.map((t) => serializeTicket(t)),
+      nightlifePins: nightlifePins.map((p) => serializePin(p, userId)),
+      notifications: notifications.map((n) => serializeNotification(n)),
+      savedListingIds: saves.map((s) => s.listingId),
+      conversations: conversations.map((c) => serializeConversation(c, userId)),
+    },
+    {
+      headers: {
+        'Cache-Control': 'private, no-store',
+      },
+    },
+  );
 }
