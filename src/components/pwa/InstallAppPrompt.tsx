@@ -3,11 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Share, Plus, X, Smartphone } from 'lucide-react';
-import {
-  isIOSSafari,
-  markInstallPromptSeen,
-  useInstallPrompt,
-} from '@/hooks/useInstallPrompt';
+import { markInstallPromptSeen, useInstallPrompt } from '@/hooks/useInstallPrompt';
 
 interface InstallAppPromptProps {
   userId: string | undefined;
@@ -84,20 +80,12 @@ export default function InstallAppPrompt({ userId, ready }: InstallAppPromptProp
               <h2 className="mt-2 text-[22px] font-black tracking-tight text-foreground">
                 Add YAP to your home screen
               </h2>
-              <p className="mt-2 text-[14px] leading-relaxed text-muted">
-                Opens like a real app — full screen, your logo, no browser bar. Tap once and you&apos;re in.
-              </p>
             </div>
 
             {isIOSDevice && !canInstallNative ? (
               <div className="mx-6 mb-6 space-y-3 rounded-2xl bg-surface/80 p-4 text-left ring-1 ring-divider">
-                {!isIOSSafari() && (
-                  <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-[12px] font-medium text-amber-700 dark:text-amber-400">
-                    Open this page in <strong>Safari</strong> first — that&apos;s how iPhone adds apps to your home screen.
-                  </p>
-                )}
                 <p className="text-[12px] font-bold uppercase tracking-wide text-muted">
-                  On iPhone (Safari)
+                  On iPhone
                 </p>
                 <ol className="space-y-3 text-[13px] text-foreground">
                   <li className="flex items-center gap-3">
@@ -125,7 +113,7 @@ export default function InstallAppPrompt({ userId, ready }: InstallAppPromptProp
                 <Download className="h-8 w-8 shrink-0 text-exeter" strokeWidth={2} />
                 <p className="text-[13px] leading-snug text-muted">
                   {canInstallNative
-                    ? 'Tap below — your phone will ask to install YAP with the campus logo.'
+                    ? 'Tap below and confirm when your phone asks to install YAP.'
                     : 'Use your browser menu → Install app or Add to Home screen.'}
                 </p>
               </div>
