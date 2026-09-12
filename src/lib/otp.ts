@@ -8,7 +8,10 @@ export function generateOtpCode() {
 }
 
 export function hashOtp(email: string, code: string) {
-  const secret = process.env.AUTH_SECRET ?? '';
+  const secret = process.env.AUTH_SECRET?.trim();
+  if (!secret) {
+    throw new Error('AUTH_SECRET is not configured');
+  }
   return createHash('sha256').update(`${email}:${code}:${secret}`).digest('hex');
 }
 

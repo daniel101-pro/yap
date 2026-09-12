@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isExeterEmail } from '@/lib/auth-utils';
+import { isExeterEmail, normalizeEmail } from '@/lib/auth-utils';
 import { generateOtpCode, hashOtp, getOtpExpiry, OTP_TTL_MS, OTP_RESEND_COOLDOWN_MS } from '@/lib/otp';
 import { sendVerificationEmail } from '@/lib/email';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { publicErrorMessage } from '@/lib/security';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const email = typeof body.email === 'string' ? normalizeEmail(body.email) : '';
 
     if (!isExeterEmail(email)) {
       return NextResponse.json({ error: 'Must be an @exeter.ac.uk email' }, { status: 400 });
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
     if (!ipLimit.ok) {
       return NextResponse.json(
         { error: 'Too many requests. Please try again shortly.' },
-        { status: 429 },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(ipLimit.retryAfterMs / 1000)) } },
       );
     }
 
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     if (!emailLimit.ok) {
       return NextResponse.json(
         { error: 'Too many codes requested for this email. Please wait a bit.' },
-        { status: 429 },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(emailLimit.retryAfterMs / 1000)) } },
       );
     }
 
@@ -46,6 +47,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const banned = await prisma.user.findUnique({
+      where: { email },
+      select: { isBanned: true },
+    });
+    if (banned?.isBanned) {
+      return NextResponse.json({ ok: true, message: 'Verification code sent' });
+    }
+
     const code = generateOtpCode();
     const hashed = hashOtp(email, code);
     const expires = getOtpExpiry();
@@ -58,8 +67,10 @@ export async function POST(request: NextRequest) {
     await sendVerificationEmail(email, code);
 
     return NextResponse.json({ ok: true, message: 'Verification code sent' });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Could not send code';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { error: publicErrorMessage(null, 'Could not send code') },
+      { status: 500 },
+    );
   }
 }

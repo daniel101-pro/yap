@@ -131,6 +131,9 @@ export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMa
               <div className="space-y-1">
                 <p className="text-sm font-semibold">{pin.name}</p>
                 <p className="text-xs">{pin.address}</p>
+                {pin.type === 'house-party' && (
+                  <p className="text-[11px] text-neutral-500">Approximate area</p>
+                )}
                 <a
                   href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${pin.lat},${pin.lng}`)}`}
                   target="_blank"

@@ -10,6 +10,7 @@ import NightlifeTicketCard from '@/components/nightlife/NightlifeTicketCard';
 import NightlifeVenueCard from '@/components/nightlife/NightlifeVenueCard';
 import SellTicketPanel from '@/components/nightlife/SellTicketPanel';
 import AddPartyPanel from '@/components/nightlife/AddPartyPanel';
+import { isTrustedStripeRedirect } from '@/lib/validation';
 
 type NightlifeView = 'tickets' | 'map';
 const NightlifeMap = dynamic(() => import('./NightlifeMap'), { ssr: false });
@@ -86,7 +87,7 @@ export default function NightlifePage() {
     try {
       const response = await fetch('/api/stripe/connect/onboard', { method: 'POST' });
       const data = await response.json();
-      if (data?.url) window.location.href = data.url;
+      if (isTrustedStripeRedirect(data?.url)) window.location.href = data.url;
       else alert(data?.error ?? 'Could not start Stripe onboarding.');
     } catch {
       alert('Stripe onboarding failed. Please try again.');
@@ -104,7 +105,7 @@ export default function NightlifePage() {
         body: JSON.stringify({ ticketId }),
       });
       const data = await response.json();
-      if (data?.url) window.location.href = data.url;
+      if (isTrustedStripeRedirect(data?.url)) window.location.href = data.url;
       else alert(data?.error ?? 'Could not start checkout.');
     } catch {
       alert('Checkout failed. Please try again.');

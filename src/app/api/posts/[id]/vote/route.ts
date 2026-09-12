@@ -21,7 +21,7 @@ export async function POST(
   }
 
   const post = await prisma.post.findUnique({ where: { id } });
-  if (!post?.pollQuestion) {
+  if (!post?.pollQuestion || post.hiddenAt) {
     return NextResponse.json({ error: 'No poll on this post' }, { status: 400 });
   }
 
@@ -34,6 +34,9 @@ export async function POST(
   }
 
   const options = parseJson<{ id: number; text: string; votes: number }[]>(post.pollOptions, []);
+  if (!options.some((opt) => opt.id === optionId)) {
+    return NextResponse.json({ error: 'Invalid option' }, { status: 400 });
+  }
   const updatedOptions = options.map((opt) =>
     opt.id === optionId ? { ...opt, votes: opt.votes + 1 } : opt,
   );

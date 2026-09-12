@@ -5,7 +5,14 @@ import { ensureAnonymousHandle } from '@/lib/anonymous';
 import { serializeListing } from '@/lib/serializers';
 import { toJson } from '@/lib/json';
 import { checkRateLimit } from '@/lib/rate-limit';
-import type { MarketCategory } from '@/types';
+import {
+  clampString,
+  isListingCondition,
+  isMarketCategory,
+  LIMITS,
+  parseBoundedNumber,
+  sanitizeImageUrls,
+} from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
@@ -18,12 +25,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'You are posting too fast. Please slow down.' }, { status: 429 });
   }
 
-  const body = await request.json();
-  const title = typeof body.title === 'string' ? body.title.trim() : '';
-  const description = typeof body.description === 'string' ? body.description.trim() : '';
+  const body = await request.json().catch(() => ({}));
+  const title = clampString(body.title, LIMITS.listingTitle);
+  const description = clampString(body.description, LIMITS.listingDescription);
+  const price = parseBoundedNumber(body.price, 0, LIMITS.priceMax);
 
-  if (!title) {
-    return NextResponse.json({ error: 'Title required' }, { status: 400 });
+  if (!title || price === null) {
+    return NextResponse.json({ error: 'Title and a valid price are required' }, { status: 400 });
   }
 
   await ensureAnonymousHandle(user.id);
@@ -33,10 +41,10 @@ export async function POST(request: NextRequest) {
       sellerId: user.id,
       title,
       description: description || title,
-      price: Number(body.price) || 0,
-      category: (body.category as MarketCategory) ?? 'other',
-      images: toJson(Array.isArray(body.images) ? body.images : []),
-      condition: body.condition ?? 'good',
+      price,
+      category: isMarketCategory(body.category) ? body.category : 'other',
+      images: toJson(sanitizeImageUrls(body.images)),
+      condition: isListingCondition(body.condition) ? body.condition : 'good',
     },
     include: {
       seller: { include: { _count: { select: { listings: { where: { isSold: true } } } } } },

@@ -4,7 +4,8 @@ import { getSessionUser } from '@/lib/auth-session';
 import { serializeComment } from '@/lib/serializers';
 import { createNotification } from '@/lib/notifications';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { getBlockedAuthorIds } from '@/lib/moderation';
+import { getBlockedAuthorIds, isEitherBlocked } from '@/lib/moderation';
+import { clampString, LIMITS } from '@/lib/validation';
 
 export async function GET(
   _request: NextRequest,
@@ -17,7 +18,7 @@ export async function GET(
 
   const { id } = await params;
   const post = await prisma.post.findUnique({ where: { id } });
-  if (!post) {
+  if (!post || post.hiddenAt) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
@@ -60,8 +61,8 @@ export async function POST(
   }
 
   const { id } = await params;
-  const body = await request.json();
-  const content = typeof body.content === 'string' ? body.content.trim() : '';
+  const body = await request.json().catch(() => ({}));
+  const content = clampString(body.content, LIMITS.comment);
   const parentId = typeof body.parentId === 'string' ? body.parentId : undefined;
 
   if (!content) {
@@ -69,8 +70,22 @@ export async function POST(
   }
 
   const post = await prisma.post.findUnique({ where: { id } });
-  if (!post) {
+  if (!post || post.hiddenAt) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  if (await isEitherBlocked(user.id, post.authorId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  if (parentId) {
+    const parent = await prisma.comment.findUnique({
+      where: { id: parentId },
+      select: { id: true, postId: true, hiddenAt: true },
+    });
+    if (!parent || parent.postId !== id || parent.hiddenAt) {
+      return NextResponse.json({ error: 'Invalid reply target' }, { status: 400 });
+    }
   }
 
   const comment = await prisma.comment.create({

@@ -5,7 +5,13 @@ import { ensureAnonymousHandle } from '@/lib/anonymous';
 import { serializePost } from '@/lib/serializers';
 import { toJson } from '@/lib/json';
 import { checkRateLimit } from '@/lib/rate-limit';
-import type { PostCategory } from '@/types';
+import {
+  clampString,
+  isPostCategory,
+  LIMITS,
+  sanitizeMediaItems,
+  sanitizePoll,
+} from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
@@ -18,12 +24,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'You are posting too fast. Please slow down.' }, { status: 429 });
   }
 
-  const body = await request.json();
-  const content = typeof body.content === 'string' ? body.content.trim() : '';
-  const category = body.category as PostCategory;
-  const media = Array.isArray(body.media) ? body.media : [];
+  const body = await request.json().catch(() => ({}));
+  const content = clampString(body.content, LIMITS.postContent);
+  const category = isPostCategory(body.category) ? body.category : 'confessions';
+  const media = sanitizeMediaItems(body.media);
+  const poll = sanitizePoll(body);
 
-  if (!content && !body.poll && media.length === 0) {
+  if (!content && !poll && media.length === 0) {
     return NextResponse.json({ error: 'Content required' }, { status: 400 });
   }
 
@@ -33,10 +40,10 @@ export async function POST(request: NextRequest) {
     data: {
       authorId: user.id,
       content,
-      category: category ?? 'confessions',
+      category,
       media: toJson(media),
-      pollQuestion: body.poll?.question ?? null,
-      pollOptions: body.poll?.options ? toJson(body.poll.options) : null,
+      pollQuestion: poll?.question ?? null,
+      pollOptions: poll ? toJson(poll.options) : null,
       pollTotalVotes: 0,
     },
     include: {

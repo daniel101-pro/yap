@@ -36,6 +36,8 @@ model User {
   reportsMade         Report[]
   blocksMade          BlockedUser[] @relation("Blocker")
   blockedByOthers     BlockedUser[] @relation("Blocked")
+  nightlifePins       NightlifePin[]
+  commentUpvotes      CommentUpvote[]
 }
 
 model Report {
@@ -153,8 +155,19 @@ model Comment {
   author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies   Comment[] @relation("CommentReplies")
+  upvoters  CommentUpvote[]
 
   @@index([postId])
+}
+
+model CommentUpvote {
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
 }
 
 model Listing {
@@ -205,15 +218,21 @@ model NightlifeTicket {
 }
 
 model NightlifePin {
-  id         String   @id @default(cuid())
-  name       String
-  type       String
-  address    String
-  mapsQuery  String
-  lat        Float
-  lng        Float
-  isOpen     Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id          String    @id @default(cuid())
+  name        String
+  type        String
+  address     String
+  mapsQuery   String
+  lat         Float
+  lng         Float
+  isOpen      Boolean   @default(false)
+  createdById String?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+  @@index([createdById])
 }
 
 model Notification {

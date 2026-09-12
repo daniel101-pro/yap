@@ -2,7 +2,10 @@ import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
 
 export function generateAnonymousHandle(userId: string) {
-  const secret = process.env.AUTH_SECRET ?? 'yap';
+  const secret = process.env.AUTH_SECRET?.trim();
+  if (!secret) {
+    throw new Error('AUTH_SECRET is not configured');
+  }
   const hash = createHash('sha256').update(`${userId}:${secret}`).digest('hex');
   return `Exe_${hash.slice(0, 6).toUpperCase()}`;
 }
