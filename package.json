@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src",
     "postinstall": "prisma generate"
   },
   "dependencies": {

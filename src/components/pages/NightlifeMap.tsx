@@ -38,6 +38,7 @@ export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMa
     type: 'house-party' | 'nightclub';
     lat: number;
     lng: number;
+    isApproximate?: boolean;
   }> = [];
 
   for (const raw of Array.isArray(pins) ? pins : []) {
@@ -53,6 +54,7 @@ export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMa
       type: (raw as Partial<NightlifePin>).type === 'nightclub' ? 'nightclub' : 'house-party',
       lat,
       lng,
+      isApproximate: Boolean((raw as Partial<NightlifePin>).isApproximate),
     });
   }
 
@@ -63,6 +65,7 @@ export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMa
     type: 'house-party' | 'nightclub';
     lat: number;
     lng: number;
+    isApproximate?: boolean;
     latlng: L.LatLng;
   }> = [];
 
@@ -131,7 +134,7 @@ export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMa
               <div className="space-y-1">
                 <p className="text-sm font-semibold">{pin.name}</p>
                 <p className="text-xs">{pin.address}</p>
-                {pin.type === 'house-party' && (
+                {pin.isApproximate && (
                   <p className="text-[11px] text-neutral-500">Approximate area</p>
                 )}
                 <a
