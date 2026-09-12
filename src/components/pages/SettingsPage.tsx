@@ -317,12 +317,18 @@ export default function SettingsPage() {
                 <span className="text-sm text-muted">1.0.0</span>
               </div>
               <div className="mx-4 h-px bg-divider/45" />
-              <button className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover/70 transition-colors">
+              <button
+                onClick={() => window.open('/terms', '_blank')}
+                className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover/70 transition-colors"
+              >
                 <span className="text-sm text-foreground">Terms of Service</span>
                 <ChevronRight size={16} className="text-muted" />
               </button>
               <div className="mx-4 h-px bg-divider/45" />
-              <button className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover/70 transition-colors">
+              <button
+                onClick={() => window.open('/privacy', '_blank')}
+                className="flex items-center justify-between px-4 py-3.5 w-full text-left hover:bg-surface-hover/70 transition-colors"
+              >
                 <span className="text-sm text-foreground">Privacy Policy</span>
                 <ChevronRight size={16} className="text-muted" />
               </button>

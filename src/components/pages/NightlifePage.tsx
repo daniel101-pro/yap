@@ -24,6 +24,12 @@ export default function NightlifePage() {
   const [ticketVenue, setTicketVenue] = useState('');
   const [ticketPrice, setTicketPrice] = useState('');
   const [ticketQty, setTicketQty] = useState('1');
+  const [ticketEventDate, setTicketEventDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(22, 0, 0, 0);
+    return d.toISOString().slice(0, 16);
+  });
   const [partyName, setPartyName] = useState('');
   const [partyAddress, setPartyAddress] = useState('');
   const [selectedPoint, setSelectedPoint] = useState<{ lat: number; lng: number } | null>(null);
@@ -71,13 +77,17 @@ export default function NightlifePage() {
       title: ticketTitle.trim(),
       venue: ticketVenue.trim(),
       price: Number(ticketPrice),
-      eventDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      eventDate: new Date(ticketEventDate),
       quantity: Math.max(1, Number(ticketQty) || 1),
     });
     setTicketTitle('');
     setTicketVenue('');
     setTicketPrice('');
     setTicketQty('1');
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    next.setHours(22, 0, 0, 0);
+    setTicketEventDate(next.toISOString().slice(0, 16));
     setShowTicketForm(false);
   };
 
@@ -386,10 +396,12 @@ export default function NightlifePage() {
         venue={ticketVenue}
         price={ticketPrice}
         qty={ticketQty}
+        eventDate={ticketEventDate}
         onTitleChange={setTicketTitle}
         onVenueChange={setTicketVenue}
         onPriceChange={setTicketPrice}
         onQtyChange={setTicketQty}
+        onEventDateChange={setTicketEventDate}
         onSubmit={handleSellTicket}
       />
 

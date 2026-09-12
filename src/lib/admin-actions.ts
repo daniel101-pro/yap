@@ -16,6 +16,7 @@ export async function banUserAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.user.update({ where: { id }, data: { isBanned: true, bannedAt: new Date() } });
+  revalidatePath('/admin');
   revalidatePath('/admin/users');
   revalidatePath(`/admin/users/${id}`);
 }
@@ -24,6 +25,7 @@ export async function unbanUserAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.user.update({ where: { id }, data: { isBanned: false, bannedAt: null } });
+  revalidatePath('/admin');
   revalidatePath('/admin/users');
   revalidatePath(`/admin/users/${id}`);
 }
@@ -42,6 +44,7 @@ export async function hidePostAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.post.update({ where: { id }, data: { hiddenAt: new Date() } });
+  revalidatePath('/admin');
   revalidatePath('/admin/posts');
   revalidatePath('/admin/reports');
 }
@@ -50,6 +53,7 @@ export async function unhidePostAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.post.update({ where: { id }, data: { hiddenAt: null } });
+  revalidatePath('/admin');
   revalidatePath('/admin/posts');
   revalidatePath('/admin/reports');
 }
@@ -58,6 +62,7 @@ export async function deletePostAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.post.delete({ where: { id } });
+  revalidatePath('/admin');
   revalidatePath('/admin/posts');
   revalidatePath('/admin/reports');
 }
@@ -68,6 +73,7 @@ export async function hideCommentAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.comment.update({ where: { id }, data: { hiddenAt: new Date() } });
+  revalidatePath('/admin');
   revalidatePath('/admin/comments');
   revalidatePath('/admin/reports');
 }
@@ -76,6 +82,7 @@ export async function unhideCommentAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.comment.update({ where: { id }, data: { hiddenAt: null } });
+  revalidatePath('/admin');
   revalidatePath('/admin/comments');
   revalidatePath('/admin/reports');
 }
@@ -84,6 +91,7 @@ export async function deleteCommentAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.comment.delete({ where: { id } });
+  revalidatePath('/admin');
   revalidatePath('/admin/comments');
   revalidatePath('/admin/reports');
 }
@@ -94,6 +102,7 @@ export async function hideListingAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.listing.update({ where: { id }, data: { hiddenAt: new Date() } });
+  revalidatePath('/admin');
   revalidatePath('/admin/listings');
 }
 
@@ -101,6 +110,7 @@ export async function unhideListingAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.listing.update({ where: { id }, data: { hiddenAt: null } });
+  revalidatePath('/admin');
   revalidatePath('/admin/listings');
 }
 
@@ -108,6 +118,7 @@ export async function deleteListingAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.listing.delete({ where: { id } });
+  revalidatePath('/admin');
   revalidatePath('/admin/listings');
 }
 
@@ -116,6 +127,7 @@ export async function toggleListingSoldAction(formData: FormData) {
   const id = str(formData, 'id');
   const isSold = str(formData, 'isSold') === 'true';
   await prisma.listing.update({ where: { id }, data: { isSold: !isSold } });
+  revalidatePath('/admin');
   revalidatePath('/admin/listings');
 }
 
@@ -125,6 +137,7 @@ export async function deleteTicketAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.nightlifeTicket.delete({ where: { id } });
+  revalidatePath('/admin');
   revalidatePath('/admin/nightlife');
 }
 
@@ -133,6 +146,7 @@ export async function setTicketStatusAction(formData: FormData) {
   const id = str(formData, 'id');
   const status = str(formData, 'status');
   await prisma.nightlifeTicket.update({ where: { id }, data: { status } });
+  revalidatePath('/admin');
   revalidatePath('/admin/nightlife');
 }
 
@@ -151,6 +165,7 @@ export async function createPinAction(formData: FormData) {
       isOpen: str(formData, 'isOpen') === 'true',
     },
   });
+  revalidatePath('/admin');
   revalidatePath('/admin/nightlife');
 }
 
@@ -158,6 +173,7 @@ export async function deletePinAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   await prisma.nightlifePin.delete({ where: { id } });
+  revalidatePath('/admin');
   revalidatePath('/admin/nightlife');
 }
 
@@ -166,6 +182,7 @@ export async function togglePinOpenAction(formData: FormData) {
   const id = str(formData, 'id');
   const isOpen = str(formData, 'isOpen') === 'true';
   await prisma.nightlifePin.update({ where: { id }, data: { isOpen: !isOpen } });
+  revalidatePath('/admin');
   revalidatePath('/admin/nightlife');
 }
 
@@ -176,6 +193,7 @@ export async function dismissReportsAction(formData: FormData) {
   const targetType = str(formData, 'targetType');
   const targetId = str(formData, 'targetId');
   await prisma.report.deleteMany({ where: { targetType, targetId } });
+  revalidatePath('/admin');
   revalidatePath('/admin/reports');
 }
 

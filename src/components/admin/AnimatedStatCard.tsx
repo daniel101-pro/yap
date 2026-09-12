@@ -12,6 +12,7 @@ interface AnimatedStatCardProps {
   index: number;
   prefix?: string;
   suffix?: string;
+  alert?: boolean;
 }
 
 export default function AnimatedStatCard({
@@ -22,6 +23,7 @@ export default function AnimatedStatCard({
   index,
   prefix = '',
   suffix = '',
+  alert = false,
 }: AnimatedStatCardProps) {
   const [display, setDisplay] = useState(0);
 
@@ -44,7 +46,11 @@ export default function AnimatedStatCard({
     >
       <Link
         href={href}
-        className="block rounded-2xl bg-surface/60 p-5 ring-1 ring-divider transition-colors hover:bg-surface hover:ring-exeter/30"
+        className={`block rounded-2xl p-5 ring-1 transition-colors ${
+          alert
+            ? 'bg-red-500/[0.06] ring-red-500/25 hover:bg-red-500/10 hover:ring-red-500/40'
+            : 'bg-surface/60 ring-divider hover:bg-surface hover:ring-exeter/30'
+        }`}
       >
         {icon}
         <p className="mt-4 text-[26px] font-bold tabular-nums text-foreground">

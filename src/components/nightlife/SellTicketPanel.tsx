@@ -11,10 +11,12 @@ interface SellTicketPanelProps {
   venue: string;
   price: string;
   qty: string;
+  eventDate: string;
   onTitleChange: (v: string) => void;
   onVenueChange: (v: string) => void;
   onPriceChange: (v: string) => void;
   onQtyChange: (v: string) => void;
+  onEventDateChange: (v: string) => void;
   onSubmit: (e: FormEvent) => void;
 }
 
@@ -25,10 +27,12 @@ export default function SellTicketPanel({
   venue,
   price,
   qty,
+  eventDate,
   onTitleChange,
   onVenueChange,
   onPriceChange,
   onQtyChange,
+  onEventDateChange,
   onSubmit,
 }: SellTicketPanelProps) {
   return (
@@ -81,6 +85,18 @@ export default function SellTicketPanel({
                 placeholder="Venue"
                 className="w-full rounded-xl bg-surface px-4 py-3 text-[14px] outline-none ring-1 ring-divider focus:ring-2 focus:ring-exeter/30"
               />
+              <div>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted">
+                  Event date
+                </label>
+                <input
+                  type="datetime-local"
+                  value={eventDate}
+                  onChange={(e) => onEventDateChange(e.target.value)}
+                  required
+                  className="w-full rounded-xl bg-surface px-4 py-3 text-[14px] outline-none ring-1 ring-divider focus:ring-2 focus:ring-exeter/30"
+                />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <input
                   value={price}

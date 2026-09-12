@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
 import { serializeComment } from '@/lib/serializers';
+import { awardKarma } from '@/lib/karma';
 
 export async function POST(
   _request: Request,
@@ -26,6 +27,10 @@ export async function POST(
     where: { id },
     data: { upvotes: { increment: 1 } },
   });
+
+  if (existing.authorId !== user.id) {
+    await awardKarma(existing.authorId, 1);
+  }
 
   return NextResponse.json({
     comment: serializeComment(comment, user.id, existing.post.authorId),

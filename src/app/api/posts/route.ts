@@ -29,14 +29,28 @@ export async function POST(request: NextRequest) {
 
   await ensureAnonymousHandle(user.id);
 
+  let pollQuestion: string | null = null;
+  let pollOptionsJson: string | null = null;
+  if (body.poll && typeof body.poll.question === 'string') {
+    const question = body.poll.question.trim();
+    const rawOptions = Array.isArray(body.poll.options) ? body.poll.options : [];
+    const options = rawOptions
+      .filter((o: unknown) => typeof o === 'string' && o.trim())
+      .map((text: string, i: number) => ({ id: i, text: text.trim(), votes: 0 }));
+    if (question && options.length >= 2) {
+      pollQuestion = question;
+      pollOptionsJson = toJson(options);
+    }
+  }
+
   const post = await prisma.post.create({
     data: {
       authorId: user.id,
       content,
       category: category ?? 'confessions',
       media: toJson(media),
-      pollQuestion: body.poll?.question ?? null,
-      pollOptions: body.poll?.options ? toJson(body.poll.options) : null,
+      pollQuestion,
+      pollOptions: pollOptionsJson,
       pollTotalVotes: 0,
     },
     include: {

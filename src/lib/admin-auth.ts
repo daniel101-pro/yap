@@ -32,3 +32,12 @@ export async function requireAdminAction() {
   }
   return session;
 }
+
+/** Use in admin API routes — returns null when not authorized. */
+export async function requireAdminApi() {
+  const session = await auth();
+  if (!isAdminEmail(session?.user?.email)) {
+    return null;
+  }
+  return session;
+}

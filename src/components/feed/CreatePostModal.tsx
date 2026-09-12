@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowUp, ImagePlus, ShoppingBag, MessageSquare, Sparkles } from 'lucide-react';
+import { X, ArrowUp, ImagePlus, ShoppingBag, MessageSquare, Sparkles, BarChart3, Plus, Minus } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { PostCategory, MarketCategory } from '@/types';
 import { getCategoryLabel } from '@/lib/utils';
@@ -28,6 +28,9 @@ export default function CreatePostModal() {
   const [price, setPrice] = useState('');
   const [marketCategory, setMarketCategory] = useState<MarketCategory>('other');
   const [condition, setCondition] = useState<'new' | 'like-new' | 'good' | 'fair'>('good');
+  const [postFormat, setPostFormat] = useState<'text' | 'poll'>('text');
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
   const [postMedia, setPostMedia] = useState<{ type: 'image' | 'video'; url: string }[]>([]);
   const [listingImages, setListingImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -47,6 +50,9 @@ export default function CreatePostModal() {
     setDescription('');
     setPrice('');
     setPostMedia([]);
+    setPostFormat('text');
+    setPollQuestion('');
+    setPollOptions(['', '']);
     setListingImages([]);
     setShowCreateModal(false);
   };
@@ -97,10 +103,19 @@ export default function CreatePostModal() {
   };
 
   const handleSubmitPost = async () => {
-    if (!content.trim() && postMedia.length === 0) return;
     setSubmitError('');
     try {
-      await addPost(content.trim(), category, postMedia);
+      if (postFormat === 'poll') {
+        const options = pollOptions.map((o) => o.trim()).filter(Boolean);
+        if (!pollQuestion.trim() || options.length < 2) {
+          setSubmitError('Add a question and at least 2 options');
+          return;
+        }
+        await addPost('', category, [], { question: pollQuestion.trim(), options });
+      } else {
+        if (!content.trim() && postMedia.length === 0) return;
+        await addPost(content.trim(), category, postMedia);
+      }
       clearComposer();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Could not post');
@@ -128,7 +143,9 @@ export default function CreatePostModal() {
   const canSubmit =
     !isUploading &&
     (createMode === 'post'
-      ? content.trim().length > 0 || postMedia.length > 0
+      ? postFormat === 'poll'
+        ? pollQuestion.trim().length > 0 && pollOptions.filter((o) => o.trim()).length >= 2
+        : content.trim().length > 0 || postMedia.length > 0
       : title.trim().length > 0 && price);
   const charPercent = Math.min((content.length / 500) * 100, 100);
 
@@ -224,6 +241,30 @@ export default function CreatePostModal() {
                     exit={{ opacity: 0, x: -16 }}
                     transition={{ duration: 0.2 }}
                   >
+                    {/* Text vs poll */}
+                    <div className="mb-4 flex rounded-xl p-1" style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setPostFormat('text')}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-[12px] font-bold ${
+                          postFormat === 'text' ? 'bg-background text-foreground shadow-sm' : 'text-muted'
+                        }`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
+                        Yap
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPostFormat('poll')}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-[12px] font-bold ${
+                          postFormat === 'poll' ? 'bg-background text-foreground shadow-sm' : 'text-muted'
+                        }`}
+                      >
+                        <BarChart3 className="h-3.5 w-3.5" strokeWidth={2} />
+                        Poll
+                      </button>
+                    </div>
+
                     {/* Category selector */}
                     <div className="flex flex-wrap gap-1.5 mb-5">
                       {postCategories.map((cat) => {
@@ -247,26 +288,75 @@ export default function CreatePostModal() {
                       })}
                     </div>
 
-                    {/* Compose area */}
-                    <div className="relative">
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}>
-                          <Sparkles className="w-4 h-4 text-exeter" strokeWidth={2} />
+                    {postFormat === 'poll' ? (
+                      <div className="space-y-3">
+                        <input
+                          value={pollQuestion}
+                          onChange={(e) => setPollQuestion(e.target.value)}
+                          placeholder="Ask the campus something…"
+                          maxLength={200}
+                          className="w-full rounded-xl px-4 py-3.5 text-[16px] font-semibold text-foreground placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-exeter/30"
+                          style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}
+                        />
+                        <div className="space-y-2">
+                          {pollOptions.map((opt, i) => (
+                            <div key={i} className="flex gap-2">
+                              <input
+                                value={opt}
+                                onChange={(e) => {
+                                  const next = [...pollOptions];
+                                  next[i] = e.target.value;
+                                  setPollOptions(next);
+                                }}
+                                placeholder={`Option ${i + 1}`}
+                                maxLength={80}
+                                className="flex-1 rounded-xl px-4 py-3 text-[14px] text-foreground placeholder:text-muted-light focus:outline-none focus:ring-2 focus:ring-exeter/30"
+                                style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}
+                              />
+                              {pollOptions.length > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))}
+                                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface text-muted"
+                                >
+                                  <Minus className="h-4 w-4" strokeWidth={2} />
+                                </button>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-semibold text-exeter mb-1.5">Anonymous Yapper</p>
-                          <textarea
-                            ref={textareaRef}
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            placeholder="What's happening on campus?"
-                            maxLength={500}
-                            rows={5}
-                            className="w-full resize-none bg-transparent text-[16px] text-foreground leading-[1.7] placeholder:text-muted-light focus:outline-none"
-                          />
+                        {pollOptions.length < 4 && (
+                          <button
+                            type="button"
+                            onClick={() => setPollOptions([...pollOptions, ''])}
+                            className="flex items-center gap-2 text-[13px] font-semibold text-exeter"
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                            Add option
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: 'var(--color-surface, #f3f4f6)' }}>
+                            <Sparkles className="w-4 h-4 text-exeter" strokeWidth={2} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-semibold text-exeter mb-1.5">Anonymous Yapper</p>
+                            <textarea
+                              ref={textareaRef}
+                              value={content}
+                              onChange={(e) => setContent(e.target.value)}
+                              placeholder="What's happening on campus?"
+                              maxLength={500}
+                              rows={5}
+                              className="w-full resize-none bg-transparent text-[16px] text-foreground leading-[1.7] placeholder:text-muted-light focus:outline-none"
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
 
                     {postMedia.length > 0 && (
                       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -289,6 +379,7 @@ export default function CreatePostModal() {
                     )}
 
                     {/* Bottom bar */}
+                    {postFormat === 'text' && (
                     <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: '1px solid var(--color-divider, #e5e7eb)' }}>
                       <div className="flex items-center gap-2">
                         <button
@@ -339,6 +430,7 @@ export default function CreatePostModal() {
                         )}
                       </div>
                     </div>
+                    )}
                   </motion.div>
                 ) : (
                   <motion.div

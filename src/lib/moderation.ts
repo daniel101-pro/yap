@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 
 const AUTO_HIDE_THRESHOLD = 3;
 
-export type ReportTargetType = 'post' | 'comment';
+export type ReportTargetType = 'post' | 'comment' | 'listing';
 
 export async function fileReport(
   reporterId: string,
@@ -24,8 +24,13 @@ export async function fileReport(
       where: { id: targetId, hiddenAt: null },
       data: { hiddenAt: new Date() },
     });
-  } else {
+  } else if (targetType === 'comment') {
     await prisma.comment.updateMany({
+      where: { id: targetId, hiddenAt: null },
+      data: { hiddenAt: new Date() },
+    });
+  } else if (targetType === 'listing') {
+    await prisma.listing.updateMany({
       where: { id: targetId, hiddenAt: null },
       data: { hiddenAt: new Date() },
     });

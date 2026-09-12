@@ -5,6 +5,8 @@ import { UserPlus, MessageSquare, ShoppingBag, Flag } from 'lucide-react';
 import { timeAgo } from '@/lib/utils';
 import type { ActivityEvent } from '@/lib/admin-analytics';
 
+type FeedEvent = Omit<ActivityEvent, 'timestamp'> & { timestamp: Date | string };
+
 const ICONS: Record<ActivityEvent['type'], React.ElementType> = {
   user: UserPlus,
   post: MessageSquare,
@@ -19,7 +21,7 @@ const COLORS: Record<ActivityEvent['type'], string> = {
   report: 'text-red-500 bg-red-500/10',
 };
 
-export default function RecentActivityFeed({ events }: { events: ActivityEvent[] }) {
+export default function RecentActivityFeed({ events }: { events: FeedEvent[] }) {
   if (events.length === 0) {
     return <p className="py-8 text-center text-[13px] text-muted">Nothing happening yet</p>;
   }
@@ -40,7 +42,9 @@ export default function RecentActivityFeed({ events }: { events: ActivityEvent[]
               <Icon className="h-3.5 w-3.5" strokeWidth={2} />
             </div>
             <p className="min-w-0 flex-1 truncate text-[13px] text-foreground">{e.label}</p>
-            <span className="flex-shrink-0 text-[11px] text-muted-light">{timeAgo(e.timestamp)}</span>
+            <span className="flex-shrink-0 text-[11px] text-muted-light">
+              {timeAgo(typeof e.timestamp === 'string' ? new Date(e.timestamp) : e.timestamp)}
+            </span>
           </motion.div>
         );
       })}

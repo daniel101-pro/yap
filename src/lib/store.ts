@@ -70,7 +70,13 @@ interface AppState {
   feedFilter: PostCategory | 'all';
   setFeedFilter: (filter: PostCategory | 'all') => void;
   reactToPost: (postId: string, reaction: Reaction) => Promise<void>;
-  addPost: (content: string, category: PostCategory, media?: Post['media']) => Promise<void>;
+  addPost: (
+    content: string,
+    category: PostCategory,
+    media?: Post['media'],
+    poll?: { question: string; options: string[] },
+  ) => Promise<void>;
+  reportListing: (listingId: string, reason?: string) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   voteOnPoll: (postId: string, optionId: number) => Promise<void>;
 
@@ -271,14 +277,25 @@ export const useStore = create<AppState>((set, get) => ({
       set({ posts: prevPosts });
     }
   },
-  addPost: async (content, category, media = []) => {
+  addPost: async (content, category, media = [], poll) => {
     const { post } = await api<{ post: Post }>('/api/posts', {
       method: 'POST',
-      body: JSON.stringify({ content, category, media }),
+      body: JSON.stringify({
+        content,
+        category,
+        media,
+        ...(poll ? { poll: { question: poll.question, options: poll.options } } : {}),
+      }),
     });
     set((state) => ({
       posts: [{ ...post, timestamp: new Date(post.timestamp) }, ...state.posts],
     }));
+  },
+  reportListing: async (listingId, reason) => {
+    await api(`/api/listings/${listingId}/report`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason ?? '' }),
+    });
   },
   deletePost: async (postId) => {
     await api(`/api/posts/${postId}`, { method: 'DELETE' });

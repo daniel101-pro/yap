@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import ConfirmButton from '@/components/admin/ConfirmButton';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
 import {
   deleteTicketAction,
   setTicketStatusAction,
@@ -21,10 +22,10 @@ export default async function AdminNightlifePage() {
 
   return (
     <div className="max-w-5xl space-y-10">
-      <div>
-        <h1 className="text-[20px] font-bold text-foreground">Nightlife</h1>
-        <p className="mt-1 text-[13px] text-muted">Resale tickets and map pins.</p>
-      </div>
+      <AdminPageHeader
+        title="Nightlife"
+        subtitle={`${tickets.length} tickets · ${pins.length} map pins`}
+      />
 
       <section>
         <h2 className="text-[14px] font-semibold text-foreground">Tickets ({tickets.length})</h2>

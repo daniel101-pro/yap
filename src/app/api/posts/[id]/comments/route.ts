@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
 import { serializeComment } from '@/lib/serializers';
 import { createNotification } from '@/lib/notifications';
+import { awardKarma } from '@/lib/karma';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { getBlockedAuthorIds } from '@/lib/moderation';
 
@@ -83,6 +84,7 @@ export async function POST(
   });
 
   if (post.authorId !== user.id) {
+    await awardKarma(post.authorId, 2);
     await createNotification({
       userId: post.authorId,
       type: parentId ? 'reply' : 'comment',

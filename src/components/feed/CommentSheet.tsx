@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ArrowUp, ChevronUp, CornerDownRight, Flag } from 'lucide-react';
+import { X, ArrowUp, ChevronUp, CornerDownRight, Flag, UserX } from 'lucide-react';
 import { Comment } from '@/types';
 import { useStore } from '@/lib/store';
 import { timeAgo } from '@/lib/utils';
@@ -23,9 +23,10 @@ function CommentItem({
   depth?: number;
   onReply: (commentId: string) => void;
 }) {
-  const { upvoteComment, reportComment } = useStore();
+  const { upvoteComment, reportComment, blockCommentAuthor } = useStore();
   const [upvoted, setUpvoted] = useState(false);
   const [reported, setReported] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
   const handleUpvote = async () => {
     if (upvoted) return;
@@ -44,6 +45,17 @@ function CommentItem({
       await reportComment(comment.id, 'reported from comments');
     } catch {
       setReported(false);
+    }
+  };
+
+  const handleBlock = async () => {
+    if (blocked || comment.isOP) return;
+    if (!window.confirm('Block this user? Their comments will be hidden from your feed.')) return;
+    setBlocked(true);
+    try {
+      await blockCommentAuthor(comment.id, postId);
+    } catch {
+      setBlocked(false);
     }
   };
 
@@ -109,6 +121,18 @@ function CommentItem({
             <Flag className="w-3 h-3" />
             {reported ? 'Reported' : 'Report'}
           </button>
+          {!comment.isOP && (
+            <button
+              onClick={handleBlock}
+              disabled={blocked}
+              className={`flex items-center gap-1 text-[12px] transition-colors ${
+                blocked ? 'text-exeter' : 'text-muted-light hover:text-foreground'
+              }`}
+            >
+              <UserX className="w-3 h-3" />
+              {blocked ? 'Blocked' : 'Block'}
+            </button>
+          )}
         </div>
       </div>
 

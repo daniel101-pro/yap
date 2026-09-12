@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/lib/store';
@@ -15,6 +15,7 @@ import ProfilePage from '@/components/pages/ProfilePage';
 import SettingsPage from '@/components/pages/SettingsPage';
 import NotificationsPage from '@/components/pages/NotificationsPage';
 import { useLiveSync } from '@/hooks/useLiveSync';
+import AppToast, { type ToastState } from '@/components/ui/AppToast';
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -33,6 +34,8 @@ export default function Home() {
     loadLocalPreferences,
     setActiveTab,
   } = useStore();
+
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   useLiveSync();
 
@@ -91,7 +94,32 @@ export default function Home() {
     if (tab === 'feed' || tab === 'market' || tab === 'nightlife' || tab === 'profile') {
       setActiveTab(tab);
     }
+
+    const checkout = params.get('checkout');
+    const onboarding = params.get('onboarding');
+    if (checkout === 'success') {
+      setToast({ message: 'Ticket purchased! Stripe will email your receipt.', type: 'success' });
+    } else if (checkout === 'cancel') {
+      setToast({ message: 'Checkout cancelled — ticket released back to the list.', type: 'error' });
+    } else if (onboarding === 'complete') {
+      setToast({ message: 'Payouts set up — you can sell tickets now!', type: 'success' });
+    } else if (onboarding === 'retry') {
+      setToast({ message: 'Finish Stripe setup to receive ticket payouts.', type: 'error' });
+    }
+
+    if (checkout || onboarding) {
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete('checkout');
+      clean.searchParams.delete('onboarding');
+      window.history.replaceState({}, '', clean.pathname + clean.search);
+    }
   }, [setActiveTab]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   if (status === 'loading' || (session && !isHydrated && isHydrating && !hydrationError)) {
     return (
@@ -195,6 +223,7 @@ export default function Home() {
 
       <BottomNav />
       <CreatePostModal />
+      <AppToast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }

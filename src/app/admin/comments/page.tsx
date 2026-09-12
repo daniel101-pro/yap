@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import SearchBox from '@/components/admin/SearchBox';
 import Pagination from '@/components/admin/Pagination';
 import ConfirmButton from '@/components/admin/ConfirmButton';
+import AdminPageHeader from '@/components/admin/AdminPageHeader';
+import AdminTable, { AdminTableHead, AdminTableEmpty } from '@/components/admin/AdminTable';
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge';
 import { hideCommentAction, unhideCommentAction, deleteCommentAction } from '@/lib/admin-actions';
 
 const PAGE_SIZE = 30;
@@ -45,17 +48,12 @@ export default async function AdminCommentsPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[20px] font-bold text-foreground">Comments</h1>
-          <p className="mt-1 text-[13px] text-muted">{total} total</p>
-        </div>
+      <AdminPageHeader title="Comments" subtitle={`${total.toLocaleString()} total`}>
         <SearchBox action="/admin/comments" defaultValue={q} placeholder="Search comment content…" />
-      </div>
+      </AdminPageHeader>
 
-      <div className="mt-5 overflow-hidden rounded-2xl ring-1 ring-divider">
-        <table className="w-full text-left text-[13px]">
-          <thead className="bg-surface/70 text-[11px] uppercase tracking-wide text-muted">
+      <AdminTable>
+        <AdminTableHead>
             <tr>
               <th className="px-4 py-2.5 font-semibold">Comment</th>
               <th className="px-4 py-2.5 font-semibold">On post</th>
@@ -66,14 +64,14 @@ export default async function AdminCommentsPage({
               <th className="px-4 py-2.5 font-semibold">Status</th>
               <th className="px-4 py-2.5 font-semibold text-right">Actions</th>
             </tr>
-          </thead>
-          <tbody>
+        </AdminTableHead>
+        <tbody>
             {comments.map((c, i) => {
               const reportCount = reportMap.get(c.id) ?? 0;
               return (
                 <tr
                   key={c.id}
-                  className="row-in border-t border-divider/60 align-top"
+                  className="row-in border-t border-divider/60 align-top transition-colors hover:bg-surface/40"
                   style={{ animationDelay: `${Math.min(i * 0.025, 0.3)}s` }}
                 >
                   <td className="max-w-[240px] px-4 py-2.5">
@@ -102,15 +100,7 @@ export default async function AdminCommentsPage({
                   </td>
                   <td className="px-4 py-2.5 text-muted">{c.createdAt.toLocaleDateString('en-GB')}</td>
                   <td className="px-4 py-2.5">
-                    {c.hiddenAt ? (
-                      <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold text-red-500">
-                        Hidden
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-exeter/10 px-2 py-0.5 text-[11px] font-semibold text-exeter">
-                        Live
-                      </span>
-                    )}
+                    {c.hiddenAt ? <AdminStatusBadge variant="hidden" /> : <AdminStatusBadge variant="live" />}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-3">
@@ -143,16 +133,9 @@ export default async function AdminCommentsPage({
                 </tr>
               );
             })}
-            {comments.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted">
-                  No comments found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            {comments.length === 0 && <AdminTableEmpty colSpan={8} message="No comments found" />}
+        </tbody>
+      </AdminTable>
 
       <Pagination page={page} totalPages={totalPages} basePath="/admin/comments" searchParams={{ q, filter }} />
     </div>

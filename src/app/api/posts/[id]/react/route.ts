@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
 import { serializePost } from '@/lib/serializers';
 import { createNotification } from '@/lib/notifications';
+import { awardKarma } from '@/lib/karma';
 import type { Reaction } from '@/types';
 
 const REACTIONS: Reaction[] = ['fire', 'cap', 'dead', 'real', 'sus'];
@@ -46,6 +47,7 @@ export async function POST(
       select: { authorId: true },
     });
     if (postAuthor && postAuthor.authorId !== user.id) {
+      await awardKarma(postAuthor.authorId, 1);
       await createNotification({
         userId: postAuthor.authorId,
         type: 'reaction',

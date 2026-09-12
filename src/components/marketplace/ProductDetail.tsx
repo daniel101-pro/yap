@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Eye, Heart, Star, MessageCircle, User } from 'lucide-react';
+import { ChevronLeft, Eye, Heart, Star, MessageCircle, User, Flag } from 'lucide-react';
 import { Listing } from '@/types';
 import { useStore } from '@/lib/store';
 import { timeAgo, getConditionLabel } from '@/lib/utils';
@@ -32,9 +32,10 @@ function StarRating({ rating, size = 14 }: { rating: number; size?: number }) {
 }
 
 export default function ProductDetail({ listing, onBack, onViewSeller }: ProductDetailProps) {
-  const { savedListings, toggleSaveListing, startConversation, activeConversation, setActiveConversation, recordListingView } = useStore();
+  const { savedListings, toggleSaveListing, startConversation, activeConversation, setActiveConversation, recordListingView, reportListing } = useStore();
   const [activeImage, setActiveImage] = useState(0);
   const [showMessage, setShowMessage] = useState(false);
+  const [reported, setReported] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const CategoryIcon = getCategoryIcon(listing.category);
   const isSaved = savedListings.includes(listing.id);
@@ -55,6 +56,16 @@ export default function ProductDetail({ listing, onBack, onViewSeller }: Product
   const handleMessageSeller = async () => {
     await startConversation(listing);
     setShowMessage(true);
+  };
+
+  const handleReport = async () => {
+    if (reported || listing.isOwn) return;
+    setReported(true);
+    try {
+      await reportListing(listing.id, 'reported from marketplace');
+    } catch {
+      setReported(false);
+    }
   };
 
   return (
@@ -223,12 +234,28 @@ export default function ProductDetail({ listing, onBack, onViewSeller }: Product
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => onViewSeller(listing.seller.id)}
-              className="w-full py-2.5 text-sm font-medium text-muted bg-surface-hover hover:bg-surface border border-divider rounded-xl transition-colors"
-            >
-              View seller&apos;s items
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onViewSeller(listing.seller.id)}
+                className="flex-1 py-2.5 text-sm font-medium text-muted bg-surface-hover hover:bg-surface border border-divider rounded-xl transition-colors"
+              >
+                View seller&apos;s items
+              </button>
+              {!listing.isOwn && (
+                <button
+                  onClick={handleReport}
+                  disabled={reported}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-[12px] font-semibold transition-colors ${
+                    reported
+                      ? 'border-exeter/30 bg-exeter/10 text-exeter'
+                      : 'border-divider bg-surface text-muted hover:text-foreground'
+                  }`}
+                >
+                  <Flag className="h-3.5 w-3.5" strokeWidth={2} />
+                  {reported ? 'Reported' : 'Report'}
+                </button>
+              )}
+            </div>
           </div>
         </motion.div>
 
