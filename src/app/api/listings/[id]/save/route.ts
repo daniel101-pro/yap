@@ -14,6 +14,14 @@ export async function POST(
   }
 
   const { id } = await params;
+  const listingRecord = await prisma.listing.findUnique({
+    where: { id },
+    select: { id: true, hiddenAt: true, seller: { select: { isBanned: true } } },
+  });
+  if (!listingRecord || listingRecord.hiddenAt || listingRecord.seller.isBanned) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   const existing = await prisma.listingSave.findUnique({
     where: { userId_listingId: { userId: user.id, listingId: id } },
   });

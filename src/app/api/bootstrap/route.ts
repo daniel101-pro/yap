@@ -11,6 +11,7 @@ import {
 import { serializeConversation } from '@/lib/serializers-messages';
 import { seedDatabaseIfEmpty } from '@/lib/seed';
 import { getBlockedAuthorIds } from '@/lib/moderation';
+import { HOUSE_PARTY_TTL_MS, MAX_PUBLIC_PINS } from '@/lib/pin-privacy';
 
 const sellerInclude = {
   seller: {
@@ -31,6 +32,18 @@ export async function GET() {
 
   const userId = user.id;
   const blockedAuthorIds = await getBlockedAuthorIds(userId);
+  const now = new Date();
+  const housePartyCutoff = new Date(now.getTime() - HOUSE_PARTY_TTL_MS);
+
+  await prisma.nightlifePin.deleteMany({
+    where: {
+      type: 'house-party',
+      OR: [
+        { expiresAt: { lte: now } },
+        { AND: [{ expiresAt: null }, { createdAt: { lte: housePartyCutoff } }] },
+      ],
+    },
+  });
 
   const [dbUser, posts, listings, nightlifeTickets, nightlifePins, notifications, saves, conversations] =
     await Promise.all([
@@ -71,9 +84,24 @@ export async function GET() {
         },
         orderBy: { eventDate: 'asc' },
         take: 100,
-        include: { seller: true },
+        include: { seller: { select: { id: true, anonymousHandle: true } } },
       }),
-      prisma.nightlifePin.findMany({ orderBy: { createdAt: 'desc' } }),
+      prisma.nightlifePin.findMany({
+        where: {
+          OR: [
+            { type: 'nightclub' },
+            {
+              type: 'house-party',
+              OR: [
+                { expiresAt: { gt: now } },
+                { AND: [{ expiresAt: null }, { createdAt: { gt: housePartyCutoff } }] },
+              ],
+            },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        take: MAX_PUBLIC_PINS,
+      }),
       prisma.notification.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
@@ -88,9 +116,13 @@ export async function GET() {
         orderBy: { lastMessageAt: 'desc' },
         include: {
           listing: { select: { title: true } },
-          buyer: true,
-          seller: true,
-          messages: { orderBy: { createdAt: 'asc' }, take: 50, include: { sender: true } },
+          buyer: { select: { id: true, anonymousHandle: true } },
+          seller: { select: { id: true, anonymousHandle: true } },
+          messages: {
+            orderBy: { createdAt: 'asc' },
+            take: 50,
+            include: { sender: { select: { id: true, anonymousHandle: true } } },
+          },
         },
       }),
     ]);
@@ -107,7 +139,7 @@ export async function GET() {
     posts: posts.map((p) => serializePost(p, userId)),
     listings: listings.map((l) => serializeListing(l, userId)),
     nightlifeTickets: nightlifeTickets.map((t) => serializeTicket(t)),
-    nightlifePins: nightlifePins.map((p) => serializePin(p)),
+    nightlifePins: nightlifePins.map((p) => serializePin(p, userId)),
     notifications: notifications.map((n) => serializeNotification(n)),
     savedListingIds: saves.map((s) => s.listingId),
     conversations: conversations.map((c) => serializeConversation(c, userId)),

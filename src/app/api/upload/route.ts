@@ -3,6 +3,7 @@ import { put } from '@vercel/blob';
 import { randomUUID } from 'crypto';
 import { getSessionUser } from '@/lib/auth-session';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { detectMediaType, sanitizeUploadBytes } from '@/lib/media-safety';
 
 const EXT_MAP: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -13,14 +14,7 @@ const EXT_MAP: Record<string, string> = {
   'video/quicktime': '.mov',
 };
 const MAX_BYTES = 8 * 1024 * 1024;
-const ALLOWED_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'video/mp4',
-  'video/quicktime',
-]);
+const ALLOWED_TYPES = new Set(Object.keys(EXT_MAP));
 
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
@@ -40,12 +34,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No file provided' }, { status: 400 });
   }
 
-  if (!ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 });
-  }
-
   if (file.size > MAX_BYTES) {
     return NextResponse.json({ error: 'File too large (max 8MB)' }, { status: 400 });
+  }
+
+  const rawBytes = new Uint8Array(await file.arrayBuffer());
+  const detectedType = detectMediaType(rawBytes);
+  if (!detectedType || !ALLOWED_TYPES.has(detectedType)) {
+    return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 });
   }
 
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -55,15 +51,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const ext = EXT_MAP[file.type] ?? '.bin';
+  const bytes = sanitizeUploadBytes(detectedType, rawBytes);
+  const ext = EXT_MAP[detectedType] ?? '.bin';
   const filename = `uploads/${user.id}/${randomUUID()}${ext}`;
-
-  const blob = await put(filename, file, {
+  const blob = await put(filename, Buffer.from(bytes), {
     access: 'public',
-    contentType: file.type,
+    contentType: detectedType,
   });
 
-  const type = file.type.startsWith('video/') ? 'video' : 'image';
+  const type = detectedType.startsWith('video/') ? 'video' : 'image';
 
   return NextResponse.json({
     url: blob.url,

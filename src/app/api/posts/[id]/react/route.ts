@@ -4,6 +4,7 @@ import { getSessionUser } from '@/lib/auth-session';
 import { serializePost } from '@/lib/serializers';
 import { createNotification } from '@/lib/notifications';
 import { awardKarma } from '@/lib/karma';
+import { checkRateLimit } from '@/lib/rate-limit';
 import type { Reaction } from '@/types';
 
 const REACTIONS: Reaction[] = ['fire', 'cap', 'dead', 'real', 'sus'];
@@ -15,6 +16,11 @@ export async function POST(
   const user = await getSessionUser();
   if (!user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const limit = checkRateLimit(`react:${user.id}`, 60, 10 * 60 * 1000);
+  if (!limit.ok) {
+    return NextResponse.json({ error: 'Too many reactions. Please slow down.' }, { status: 429 });
   }
 
   const { id } = await params;

@@ -125,7 +125,6 @@ export interface NightlifeTicket {
   price: number;
   eventDate: Date;
   sellerName: string;
-  sellerStripeAccountId?: string;
   quantity?: number;
   status?: 'active' | 'sold' | 'reserved';
   isSold: boolean;
@@ -140,4 +139,6 @@ export interface NightlifePin {
   lat: number;
   lng: number;
   isOpen?: boolean;
+  isApproximate?: boolean;
+  isOwn?: boolean;
 }

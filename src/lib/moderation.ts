@@ -57,3 +57,17 @@ export async function getBlockedAuthorIds(userId: string): Promise<string[]> {
   });
   return rows.map((r) => r.blockedId);
 }
+
+export async function isEitherBlocked(userA: string, userB: string): Promise<boolean> {
+  if (!userA || !userB || userA === userB) return false;
+  const row = await prisma.blockedUser.findFirst({
+    where: {
+      OR: [
+        { blockerId: userA, blockedId: userB },
+        { blockerId: userB, blockedId: userA },
+      ],
+    },
+    select: { id: true },
+  });
+  return Boolean(row);
+}

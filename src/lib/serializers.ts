@@ -21,6 +21,8 @@ import type {
   Notification as DbNotification,
 } from '@prisma/client';
 import { parseJson } from '@/lib/json';
+import { isAllowedMediaUrl } from '@/lib/validation';
+import { fuzzLatLng } from '@/lib/pin-privacy';
 
 const REACTIONS: Reaction[] = ['fire', 'cap', 'dead', 'real', 'sus'];
 
@@ -52,7 +54,9 @@ export function serializePost(post: PostRow, userId?: string): Post {
     timestamp: post.createdAt,
     isVerified: true,
     isOwn: userId ? post.authorId === userId : false,
-    media: parseJson(post.media, []),
+    media: parseJson<{ type: 'image' | 'video'; url: string }[]>(post.media, []).filter(
+      (item) => item && isAllowedMediaUrl(item.url),
+    ),
     poll: post.pollQuestion
       ? {
           question: post.pollQuestion,
@@ -95,7 +99,7 @@ export function serializeListing(
     description: listing.description,
     price: listing.price,
     category: listing.category as MarketCategory,
-    images: parseJson<string[]>(listing.images, []),
+    images: parseJson<string[]>(listing.images, []).filter(isAllowedMediaUrl),
     condition: listing.condition as Listing['condition'],
     timestamp: listing.createdAt,
     isVerified: true,
@@ -116,7 +120,7 @@ export function serializeListing(
 }
 
 export function serializeTicket(
-  ticket: DbTicket & { seller: User },
+  ticket: DbTicket & { seller: { anonymousHandle: string | null } },
 ): NightlifeTicket {
   return {
     id: ticket.id,
@@ -125,23 +129,29 @@ export function serializeTicket(
     price: ticket.price,
     eventDate: ticket.eventDate,
     sellerName: ticket.seller.anonymousHandle ?? 'You',
-    sellerStripeAccountId: ticket.sellerStripeAccountId ?? undefined,
     quantity: ticket.quantity,
     status: ticket.status as NightlifeTicket['status'],
     isSold: ticket.status === 'sold',
   };
 }
 
-export function serializePin(pin: DbPin): NightlifePin {
+export function serializePin(pin: DbPin, viewerId?: string): NightlifePin {
+  const isOwn = Boolean(viewerId && pin.createdById && pin.createdById === viewerId);
+  const isHouseParty = pin.type === 'house-party';
+  const shouldFuzz = isHouseParty && !isOwn;
+  const coords = shouldFuzz ? fuzzLatLng(pin.lat, pin.lng, pin.id) : { lat: pin.lat, lng: pin.lng };
+
   return {
     id: pin.id,
     name: pin.name,
     type: pin.type as NightlifePin['type'],
     address: pin.address,
     mapsQuery: pin.mapsQuery,
-    lat: pin.lat,
-    lng: pin.lng,
+    lat: coords.lat,
+    lng: coords.lng,
     isOpen: pin.isOpen,
+    isApproximate: shouldFuzz,
+    isOwn,
   };
 }
 

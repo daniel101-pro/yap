@@ -47,6 +47,7 @@ export default function NightlifeVenueCard({ pin, index }: NightlifeVenueCardPro
           </div>
           <p className="mt-1 flex items-start gap-1 text-[12px] text-muted leading-snug">
             <MapPin className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
+            {pin.isApproximate ? 'Approximate area · ' : ''}
             {pin.address}
           </p>
         </div>

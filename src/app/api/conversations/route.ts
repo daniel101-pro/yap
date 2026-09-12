@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
 import { serializeConversation } from '@/lib/serializers-messages';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { isEitherBlocked } from '@/lib/moderation';
+import { clampString, LIMITS } from '@/lib/validation';
+
+const publicUserSelect = { id: true, anonymousHandle: true } as const;
 
 const conversationInclude = {
   listing: { select: { title: true } },
-  buyer: true,
-  seller: true,
-  messages: { orderBy: { createdAt: 'asc' as const }, include: { sender: true } },
+  buyer: { select: publicUserSelect },
+  seller: { select: publicUserSelect },
+  messages: {
+    orderBy: { createdAt: 'asc' as const },
+    include: { sender: { select: publicUserSelect } },
+  },
 };
 
 export async function GET() {
@@ -35,10 +43,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = await request.json();
+  const limit = checkRateLimit(`create-conversation:${user.id}`, 10, 10 * 60 * 1000);
+  if (!limit.ok) {
+    return NextResponse.json({ error: 'Too many conversations. Please slow down.' }, { status: 429 });
+  }
+
+  const body = await request.json().catch(() => ({}));
   const listingId = typeof body.listingId === 'string' ? body.listingId : '';
-  const initialMessage =
-    typeof body.initialMessage === 'string' ? body.initialMessage.trim() : '';
+  const initialMessage = clampString(body.initialMessage, LIMITS.message);
 
   if (!listingId) {
     return NextResponse.json({ error: 'Listing ID required' }, { status: 400 });
@@ -49,12 +61,20 @@ export async function POST(request: NextRequest) {
     include: { seller: true },
   });
 
-  if (!listing) {
+  if (!listing || listing.hiddenAt) {
     return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
   }
 
   if (listing.sellerId === user.id) {
     return NextResponse.json({ error: 'Cannot message your own listing' }, { status: 400 });
+  }
+
+  if (listing.seller.isBanned) {
+    return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+  }
+
+  if (await isEitherBlocked(user.id, listing.sellerId)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const existing = await prisma.conversation.findUnique({
@@ -93,7 +113,7 @@ export async function POST(request: NextRequest) {
         userId: listing.sellerId,
         type: 'comment',
         title: 'New message',
-        body: `Someone asked about "${listing.title}"`,
+        body: `Someone asked about "${listing.title}"`.slice(0, 120),
         listingId: listing.id,
       },
     });

@@ -66,7 +66,7 @@ export default function AddPartyPanel({
             <form onSubmit={onSubmit} className="space-y-3 p-5 pb-8">
               <p className="text-[13px] text-muted flex items-start gap-2">
                 <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-exeter" strokeWidth={2} />
-                Tap the map to pin the exact location, or we&apos;ll guess from the address.
+                Tap the map near the area. Other students see an approximate pin, not an exact address.
               </p>
               <input
                 value={name}

@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { requireAdminAction } from '@/lib/admin-auth';
+import { clampString, isTicketStatus, LIMITS } from '@/lib/validation';
+import { isInExeterBounds } from '@/lib/pin-privacy';
 
 function str(formData: FormData, key: string): string {
   const v = formData.get(key);
@@ -145,6 +147,9 @@ export async function setTicketStatusAction(formData: FormData) {
   await requireAdminAction();
   const id = str(formData, 'id');
   const status = str(formData, 'status');
+  if (!isTicketStatus(status)) {
+    throw new Error('Invalid ticket status');
+  }
   await prisma.nightlifeTicket.update({ where: { id }, data: { status } });
   revalidatePath('/admin');
   revalidatePath('/admin/nightlife');
@@ -153,16 +158,26 @@ export async function setTicketStatusAction(formData: FormData) {
 // ---- Nightlife pins ----
 
 export async function createPinAction(formData: FormData) {
-  await requireAdminAction();
+  const session = await requireAdminAction();
+  const name = clampString(str(formData, 'name'), LIMITS.pinName);
+  const address = clampString(str(formData, 'address'), LIMITS.pinAddress);
+  const mapsQuery = clampString(str(formData, 'mapsQuery') || address, LIMITS.pinMapsQuery);
+  const type = str(formData, 'type') === 'house-party' ? 'house-party' : 'nightclub';
+  const lat = Number(str(formData, 'lat'));
+  const lng = Number(str(formData, 'lng'));
+  if (!name || !address || !isInExeterBounds(lat, lng)) {
+    throw new Error('Invalid pin');
+  }
   await prisma.nightlifePin.create({
     data: {
-      name: str(formData, 'name'),
-      type: str(formData, 'type'),
-      address: str(formData, 'address'),
-      mapsQuery: str(formData, 'mapsQuery'),
-      lat: Number(str(formData, 'lat')) || 0,
-      lng: Number(str(formData, 'lng')) || 0,
+      name,
+      type,
+      address,
+      mapsQuery,
+      lat,
+      lng,
       isOpen: str(formData, 'isOpen') === 'true',
+      createdById: session.user.id,
     },
   });
   revalidatePath('/admin');

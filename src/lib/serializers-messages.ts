@@ -1,15 +1,17 @@
 import type { Conversation, Message } from '@/types';
-import type { Conversation as DbConversation, Message as DbMessage, User } from '@prisma/client';
+import type { Conversation as DbConversation, Message as DbMessage } from '@prisma/client';
+
+type PublicUser = { id: string; anonymousHandle: string | null };
 
 type ConversationRow = DbConversation & {
   listing: { title: string };
-  buyer: User;
-  seller: User;
-  messages?: (DbMessage & { sender: User })[];
+  buyer: PublicUser;
+  seller: PublicUser;
+  messages?: (DbMessage & { sender: PublicUser })[];
 };
 
 export function serializeMessage(
-  message: DbMessage & { sender: User },
+  message: DbMessage & { sender: PublicUser },
   currentUserId: string,
 ): Message {
   return {

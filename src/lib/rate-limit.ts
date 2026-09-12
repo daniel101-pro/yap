@@ -17,7 +17,12 @@ export interface RateLimitResult {
   retryAfterMs: number;
 }
 
-export function checkRateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
+export function checkRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+  consume = true,
+): RateLimitResult {
   const now = Date.now();
   let bucket = buckets.get(key);
   if (!bucket) {
@@ -33,12 +38,21 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): Ra
     return { ok: false, retryAfterMs: windowMs - (now - oldest) };
   }
 
-  bucket.hits.push(now);
+  if (consume) {
+    bucket.hits.push(now);
+  }
   return { ok: true, retryAfterMs: 0 };
 }
 
 export function getClientIp(request: NextRequest): string {
+  const realIp = request.headers.get('x-real-ip')?.trim();
+  if (realIp) return realIp;
+
   const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return request.headers.get('x-real-ip') ?? 'unknown';
+  if (forwarded) {
+    const parts = forwarded.split(',').map((part) => part.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[0];
+  }
+
+  return 'unknown';
 }
