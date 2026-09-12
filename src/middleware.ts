@@ -3,10 +3,11 @@ import { collectAllowedOrigins } from '@/lib/security';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-const CSRF_EXEMPT_PREFIXES = ['/api/stripe/webhook', '/api/auth/'];
-
 function isCsrfExempt(pathname: string): boolean {
-  return CSRF_EXEMPT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
+  if (pathname === '/api/stripe/webhook') return true;
+  // Auth.js handlers only — not the custom send-code / check-email routes.
+  if (pathname === '/api/auth/send-code' || pathname === '/api/auth/check-email') return false;
+  return pathname === '/api/auth' || pathname.startsWith('/api/auth/');
 }
 
 function applySecurityHeaders(response: NextResponse): NextResponse {
