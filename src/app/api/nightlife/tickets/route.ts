@@ -7,6 +7,12 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { clampString, LIMITS, parseBoundedNumber } from '@/lib/validation';
 import { decodeTicketProofBase64, isAllowedTicketProofUrl } from '@/lib/ticket-proof';
 
+function prismaBytesFromBuffer(buf: Buffer): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(buf.length);
+  copy.set(buf);
+  return copy as Uint8Array<ArrayBuffer>;
+}
+
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
   if (!user?.id) {
@@ -35,13 +41,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Valid title, venue, price, and quantity required' }, { status: 400 });
   }
 
-  let ticketProofData: Buffer | undefined;
+  let ticketProofData: Uint8Array<ArrayBuffer> | undefined;
   if (ticketProofBase64) {
     const decoded = decodeTicketProofBase64(ticketProofBase64);
     if (!decoded) {
       return NextResponse.json({ error: 'Invalid ticket file upload' }, { status: 400 });
     }
-    ticketProofData = decoded;
+    ticketProofData = prismaBytesFromBuffer(decoded);
   } else if (!ticketProofUrl || !isAllowedTicketProofUrl(ticketProofUrl)) {
     return NextResponse.json({ error: 'Upload your ticket (screenshot or PDF) before listing' }, { status: 400 });
   }
