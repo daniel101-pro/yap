@@ -8,7 +8,10 @@ export async function GET() {
   const webhooks = isStripeWebhookConfigured();
 
   let connectAccount = false;
-  let payoutsReady = false;
+  /** User finished Stripe's onboarding form (return_url hit). */
+  let onboardingComplete = false;
+  /** Connected account can accept ticket payments. */
+  let canReceivePayments = false;
 
   if (configured) {
     const user = await getSessionUser();
@@ -22,9 +25,11 @@ export async function GET() {
         try {
           const stripe = getStripeServerClient();
           const account = await stripe.accounts.retrieve(dbUser.stripeAccountId);
-          payoutsReady = Boolean(account.charges_enabled && account.payouts_enabled);
+          onboardingComplete = Boolean(account.details_submitted);
+          canReceivePayments = Boolean(account.charges_enabled);
         } catch {
-          payoutsReady = false;
+          onboardingComplete = false;
+          canReceivePayments = false;
         }
       }
     }
@@ -34,6 +39,9 @@ export async function GET() {
     enabled: configured,
     webhooks,
     connectAccount,
-    payoutsReady,
+    onboardingComplete,
+    canReceivePayments,
+    /** @deprecated use onboardingComplete / canReceivePayments */
+    payoutsReady: onboardingComplete && canReceivePayments,
   });
 }

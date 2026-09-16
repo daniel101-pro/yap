@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
         where: {
           seller: { ...seedAuthorFilter, isBanned: false },
           status: 'active',
-          eventDate: { gte: new Date() },
+          OR: [{ eventDate: { gte: now } }, { sellerId: userId }],
         },
         orderBy: { eventDate: 'asc' },
         take: 100,

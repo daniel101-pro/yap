@@ -12,7 +12,7 @@ export function isStripeWebhookConfigured(): boolean {
 
 /** User-safe message — never expose env var names in the UI */
 export function stripeUnavailableMessage(): string {
-  return 'Ticket payments are not live yet. You can still browse — selling and checkout will open soon.';
+  return 'Ticket payments aren’t live yet. Browse for now; checkout opens soon.';
 }
 
 export function getStripeServerClient(): Stripe {

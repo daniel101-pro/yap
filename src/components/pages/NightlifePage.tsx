@@ -1,36 +1,44 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
-import { MapPin, Ticket, Plus, Sparkles, Wallet } from 'lucide-react';
+import { MapPin, Ticket, Plus, Wallet } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { NightlifePin } from '@/types';
-import NightlifeTicketCard from '@/components/nightlife/NightlifeTicketCard';
 import NightlifeVenueCard from '@/components/nightlife/NightlifeVenueCard';
-import SellTicketPanel from '@/components/nightlife/SellTicketPanel';
+import NightlifeMnoEventsBrowse from '@/components/nightlife/NightlifeMnoEventsBrowse';
+import SellTicketPanel, { type MnoSellSeed, type SellTicketPayload } from '@/components/nightlife/SellTicketPanel';
+import {
+  NightlifeMnoEventSheet,
+  NightlifeVenueEventsSheet,
+} from '@/components/nightlife/NightlifeMnoSheets';
+import type { MnoEventDetail } from '@/lib/mynightout';
 import AddPartyPanel from '@/components/nightlife/AddPartyPanel';
 import { isTrustedStripeRedirect } from '@/lib/validation';
+import { writeSellerDashboardCache } from '@/lib/seller-dashboard-cache';
 
 type NightlifeView = 'tickets' | 'map';
 const NightlifeMap = dynamic(() => import('./NightlifeMap'), { ssr: false });
+const NIGHTLIFE_REP_STORAGE = 'yap-nightlife-rep-code';
+
+function normalizeCheckoutRepCode(raw: string): string {
+  return raw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
+}
 
 export default function NightlifePage() {
-  const { nightlifeTickets, addNightlifeTicket, nightlifePins, addNightlifePin, searchQuery } =
-    useStore();
+  const nightlifeTickets = useStore((s) => s.nightlifeTickets);
+  const addNightlifeTicket = useStore((s) => s.addNightlifeTicket);
+  const nightlifePins = useStore((s) => s.nightlifePins);
+  const addNightlifePin = useStore((s) => s.addNightlifePin);
+  const searchQuery = useStore((s) => s.searchQuery);
   const [view, setView] = useState<NightlifeView>('tickets');
+
+  useEffect(() => {
+    if (searchQuery.trim()) setView('tickets');
+  }, [searchQuery]);
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [showPartyForm, setShowPartyForm] = useState(false);
-  const [ticketTitle, setTicketTitle] = useState('');
-  const [ticketVenue, setTicketVenue] = useState('');
-  const [ticketPrice, setTicketPrice] = useState('');
-  const [ticketQty, setTicketQty] = useState('1');
-  const [ticketEventDate, setTicketEventDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    d.setHours(22, 0, 0, 0);
-    return d.toISOString().slice(0, 16);
-  });
   const [partyName, setPartyName] = useState('');
   const [partyAddress, setPartyAddress] = useState('');
   const [selectedPoint, setSelectedPoint] = useState<{ lat: number; lng: number } | null>(null);
@@ -38,34 +46,78 @@ export default function NightlifePage() {
   const [isAddingParty, setIsAddingParty] = useState(false);
   const [isConnectingStripe, setIsConnectingStripe] = useState(false);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState<string | null>(null);
-  const [stripeEnabled, setStripeEnabled] = useState<boolean | null>(null);
-  const [stripePayoutsReady, setStripePayoutsReady] = useState(false);
-  const [stripeHasConnect, setStripeHasConnect] = useState(false);
-  const [stripeWebhooks, setStripeWebhooks] = useState(true);
   const [stripeNotice, setStripeNotice] = useState<string | null>(null);
+  const stripeSellerStatus = useStore((s) => s.stripeSellerStatus);
+  const refreshStripeSellerStatus = useStore((s) => s.refreshStripeSellerStatus);
+  const stripeEnabled = stripeSellerStatus?.enabled ?? null;
+  const stripeOnboardingComplete = stripeSellerStatus?.onboardingComplete ?? false;
+  const stripeHasConnect = stripeSellerStatus?.connectAccount ?? false;
+  const stripeWebhooks = stripeSellerStatus?.webhooks ?? true;
+  const [venueEventsPin, setVenueEventsPin] = useState<NightlifePin | null>(null);
+  const [mnoEventId, setMnoEventId] = useState<string | null>(null);
+  const [checkoutRepCode, setCheckoutRepCode] = useState('');
+  const [mnoSellSeed, setMnoSellSeed] = useState<MnoSellSeed | null>(null);
+  const setShowSellerDashboard = useStore((s) => s.setShowSellerDashboard);
 
   useEffect(() => {
-    fetch('/api/stripe/status')
+    void refreshStripeSellerStatus();
+    if (sessionStorage.getItem('yap-stripe-onboarding-complete')) {
+      sessionStorage.removeItem('yap-stripe-onboarding-complete');
+      setShowSellerDashboard(true);
+      const t = window.setTimeout(() => void refreshStripeSellerStatus(), 400);
+      return () => window.clearTimeout(t);
+    }
+  }, [refreshStripeSellerStatus, setShowSellerDashboard]);
+
+  useEffect(() => {
+    if (!stripeOnboardingComplete) return;
+    fetch('/api/stripe/seller-dashboard', { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
-        setStripeEnabled(Boolean(d.enabled));
-        setStripePayoutsReady(Boolean(d.payoutsReady));
-        setStripeHasConnect(Boolean(d.connectAccount));
-        setStripeWebhooks(Boolean(d.webhooks));
+        if (d && !d.error) writeSellerDashboardCache(d);
       })
-      .catch(() => setStripeEnabled(false));
+      .catch(() => undefined);
+  }, [stripeOnboardingComplete]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(NIGHTLIFE_REP_STORAGE);
+      if (stored) setCheckoutRepCode(normalizeCheckoutRepCode(stored));
+    } catch {
+      /* ignore */
+    }
+    const repParam = new URLSearchParams(window.location.search).get('rep');
+    if (repParam) {
+      const normalized = normalizeCheckoutRepCode(repParam);
+      setCheckoutRepCode(normalized);
+      try {
+        localStorage.setItem(NIGHTLIFE_REP_STORAGE, normalized);
+      } catch {
+        /* ignore */
+      }
+    }
   }, []);
 
-  const sortedTickets = useMemo(() => {
-    let tickets = [...nightlifeTickets].sort((a, b) => +new Date(a.eventDate) - +new Date(b.eventDate));
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      tickets = tickets.filter(
-        (t) => t.title.toLowerCase().includes(q) || t.venue.toLowerCase().includes(q),
-      );
+  const handleCheckoutRepCodeChange = (value: string) => {
+    const normalized = normalizeCheckoutRepCode(value);
+    setCheckoutRepCode(normalized);
+    try {
+      if (normalized) localStorage.setItem(NIGHTLIFE_REP_STORAGE, normalized);
+      else localStorage.removeItem(NIGHTLIFE_REP_STORAGE);
+    } catch {
+      /* ignore */
     }
-    return tickets;
-  }, [nightlifeTickets, searchQuery]);
+  };
+
+  useEffect(() => {
+    const onFocus = () => void refreshStripeSellerStatus();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [refreshStripeSellerStatus]);
 
   const mappablePins: NightlifePin[] = (Array.isArray(nightlifePins) ? nightlifePins : []).flatMap(
     (pin) => {
@@ -86,27 +138,31 @@ export default function NightlifePage() {
 
   const clubs = mappablePins.filter((pin) => pin.type === 'nightclub');
   const houseParties = mappablePins.filter((pin) => pin.type === 'house-party');
-  const activeTickets = sortedTickets.filter((t) => !t.isSold && t.status !== 'sold').length;
-
-  const handleSellTicket = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!ticketTitle.trim() || !ticketVenue.trim() || !ticketPrice.trim()) return;
+  const handleSellTicket = async (ticket: SellTicketPayload) => {
     await addNightlifeTicket({
-      title: ticketTitle.trim(),
-      venue: ticketVenue.trim(),
-      price: Number(ticketPrice),
-      eventDate: new Date(ticketEventDate),
-      quantity: Math.max(1, Number(ticketQty) || 1),
+      title: ticket.title,
+      venue: ticket.venue,
+      price: ticket.price,
+      eventDate: ticket.eventDate,
+      quantity: ticket.quantity,
+      ticketProofMime: ticket.ticketProofMime,
+      ...(ticket.eventEndDate ? { eventEndDate: ticket.eventEndDate } : {}),
+      ...(ticket.mnoEventId ? { mnoEventId: ticket.mnoEventId } : {}),
+      ...(ticket.mnoTicketId ? { mnoTicketId: ticket.mnoTicketId } : {}),
+      ...(ticket.ticketProofUrl ? { ticketProofUrl: ticket.ticketProofUrl } : {}),
+      ...(ticket.ticketProofBase64 ? { ticketProofBase64: ticket.ticketProofBase64 } : {}),
     });
-    setTicketTitle('');
-    setTicketVenue('');
-    setTicketPrice('');
-    setTicketQty('1');
-    const next = new Date();
-    next.setDate(next.getDate() + 1);
-    next.setHours(22, 0, 0, 0);
-    setTicketEventDate(next.toISOString().slice(0, 16));
     setShowTicketForm(false);
+  };
+
+  const openMnoEvent = (eventId: string) => {
+    setMnoEventId(eventId);
+  };
+
+  const handleSellForMnoEvent = (event: MnoEventDetail, slotId?: string) => {
+    setMnoSellSeed({ eventId: event.id, slotId });
+    setMnoEventId(null);
+    setShowTicketForm(true);
   };
 
   const openStripeConnect = async (path: 'onboard' | 'dashboard') => {
@@ -114,13 +170,6 @@ export default function NightlifePage() {
       setStripeNotice('Payouts are not live on this server yet. Check back soon.');
       return;
     }
-    if (!stripeWebhooks) {
-      setStripeNotice(
-        'Payments need a webhook secret. Locally: run npm run stripe:listen and add whsec_… to .env. On yap.college: add STRIPE_WEBHOOK_SECRET in Vercel.',
-      );
-      return;
-    }
-
     setStripeNotice(null);
     setIsConnectingStripe(true);
     try {
@@ -135,17 +184,41 @@ export default function NightlifePage() {
     }
   };
 
-  const handleStripePayouts = () => {
-    if (stripeHasConnect && stripePayoutsReady) {
-      void openStripeConnect('dashboard');
+  const handleStripePayouts = async () => {
+    let status = stripeSellerStatus;
+    if (!status) {
+      await refreshStripeSellerStatus();
+      status = useStore.getState().stripeSellerStatus;
+    }
+    if (status?.enabled === false) {
+      setStripeNotice('Payouts are not live on this server yet. Check back soon.');
+      return;
+    }
+    if (status?.connectAccount && status.onboardingComplete) {
+      setShowSellerDashboard(true);
       return;
     }
     void openStripeConnect('onboard');
   };
 
+  const payoutButtonLabel = () => {
+    if (isConnectingStripe) return '…';
+    if (!stripeSellerStatus) return 'Payouts';
+    if (stripeEnabled === false) return 'Payouts soon';
+    if (stripeOnboardingComplete) return 'Dashboard';
+    if (stripeHasConnect) return 'Continue setup';
+    return 'Set up payouts';
+  };
+
   const handleBuyTicket = async (ticketId: string) => {
     if (stripeEnabled === false) {
-      setStripeNotice('Checkout is not live yet — ticket browsing still works.');
+      setStripeNotice('Checkout is not live yet. Browsing still works.');
+      return;
+    }
+    if (!stripeWebhooks) {
+      setStripeNotice(
+        'Save STRIPE_WEBHOOK_SECRET in .env (from npm run stripe:listen), restart npm run dev, and keep the listen terminal open while testing checkout.',
+      );
       return;
     }
     setStripeNotice(null);
@@ -154,7 +227,10 @@ export default function NightlifePage() {
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketId }),
+        body: JSON.stringify({
+          ticketId,
+          ...(checkoutRepCode ? { repCode: checkoutRepCode } : {}),
+        }),
       });
       const data = await response.json();
       if (isTrustedStripeRedirect(data?.url)) window.location.href = data.url;
@@ -244,9 +320,6 @@ export default function NightlifePage() {
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/90">
-                {activeTickets} tickets live
-              </span>
-              <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/90">
                 {houseParties.length} parties
               </span>
               <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/90">
@@ -262,7 +335,7 @@ export default function NightlifePage() {
         {(['tickets', 'map'] as NightlifeView[]).map((tab) => {
           const active = view === tab;
           const Icon = tab === 'tickets' ? Ticket : MapPin;
-          const label = tab === 'tickets' ? 'Tickets' : 'Live map';
+          const label = tab === 'tickets' ? 'Events' : 'Live map';
           return (
             <button
               key={tab}
@@ -299,7 +372,17 @@ export default function NightlifePage() {
           >
             {stripeEnabled === false && (
               <div className="mb-4 rounded-xl bg-amber-500/10 px-4 py-3 text-[12px] leading-relaxed text-amber-800 ring-1 ring-amber-500/20 dark:text-amber-200">
-                Ticket payments are coming soon — you can list tickets and use the map, but buy/sell checkout is not wired up on this server yet.
+                Payments coming soon. You can still list tickets and use the map.
+              </div>
+            )}
+
+            {stripeEnabled && !stripeWebhooks && (
+              <div className="mb-4 rounded-xl bg-amber-500/10 px-4 py-3 text-[12px] leading-relaxed text-amber-800 ring-1 ring-amber-500/20 dark:text-amber-200">
+                <strong>Local webhook setup:</strong> run{' '}
+                <code className="rounded bg-black/10 px-1">npm run stripe:listen</code>, copy the{' '}
+                <code className="rounded bg-black/10 px-1">whsec_…</code> into{' '}
+                <code className="rounded bg-black/10 px-1">.env</code>, save the file, restart{' '}
+                <code className="rounded bg-black/10 px-1">npm run dev</code>. Keep the listen terminal open for checkout tests.
               </div>
             )}
 
@@ -311,9 +394,13 @@ export default function NightlifePage() {
 
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-[15px] font-semibold text-foreground">Ticket exchange</h2>
+                <h2 className="text-[15px] font-semibold text-foreground">
+                  {searchQuery.trim() ? 'Search results' : 'Events'}
+                </h2>
                 <p className="text-[12px] text-muted-light">
-                  {stripeEnabled ? 'Safe resale via Stripe' : 'Browse tickets — payments launching soon'}
+                  {searchQuery.trim()
+                    ? `Matching "${searchQuery.trim()}"`
+                    : 'Tap a night for entry times and resale.'}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
@@ -321,16 +408,14 @@ export default function NightlifePage() {
                   type="button"
                   onClick={handleStripePayouts}
                   disabled={isConnectingStripe || stripeEnabled === false}
-                  className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-2 text-[11px] font-semibold text-foreground ring-1 ring-divider disabled:opacity-50"
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-[11px] font-semibold disabled:opacity-50 ${
+                    stripeOnboardingComplete
+                      ? 'bg-exeter/10 text-exeter ring-1 ring-exeter/30'
+                      : 'bg-surface text-foreground ring-1 ring-divider'
+                  }`}
                 >
                   <Wallet className="h-3.5 w-3.5" strokeWidth={2} />
-                  {isConnectingStripe
-                    ? '…'
-                    : stripeEnabled === false
-                      ? 'Payouts soon'
-                      : stripePayoutsReady
-                        ? 'Manage payouts'
-                        : 'Set up payouts'}
+                  {payoutButtonLabel()}
                 </button>
                 <button
                   type="button"
@@ -343,34 +428,7 @@ export default function NightlifePage() {
               </div>
             </div>
 
-            {sortedTickets.length === 0 ? (
-              <div className="rounded-2xl bg-surface/55 px-6 py-16 text-center ring-1 ring-divider">
-                <Sparkles className="mx-auto mb-3 h-9 w-9 text-muted" strokeWidth={1.5} />
-                <p className="text-[15px] font-semibold text-foreground">No tickets yet</p>
-                <p className="mt-1 text-[13px] text-muted-light">
-                  Be the first to list — someone always needs a spare.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowTicketForm(true)}
-                  className="mt-5 rounded-full bg-exeter px-5 py-2.5 text-[13px] font-bold text-white"
-                >
-                  List a ticket
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {sortedTickets.map((ticket, i) => (
-                  <NightlifeTicketCard
-                    key={ticket.id}
-                    ticket={ticket}
-                    index={i}
-                    isLoading={isCheckoutLoading === ticket.id}
-                    onBuy={() => handleBuyTicket(ticket.id)}
-                  />
-                ))}
-              </div>
-            )}
+            <NightlifeMnoEventsBrowse searchQuery={searchQuery} onSelectEvent={openMnoEvent} />
           </motion.section>
         ) : (
           <motion.section
@@ -409,6 +467,7 @@ export default function NightlifePage() {
                   pins={mappablePins}
                   draftPin={selectedPoint}
                   onMapClick={setSelectedPoint}
+                  onOpenVenueEvents={setVenueEventsPin}
                 />
               </div>
             </div>
@@ -421,7 +480,12 @@ export default function NightlifePage() {
                   </h3>
                   <div className="space-y-3">
                     {clubs.map((pin, i) => (
-                      <NightlifeVenueCard key={pin.id} pin={pin} index={i} />
+                      <NightlifeVenueCard
+                        key={pin.id}
+                        pin={pin}
+                        index={i}
+                        onOpenEvents={setVenueEventsPin}
+                      />
                     ))}
                   </div>
                 </div>
@@ -452,20 +516,39 @@ export default function NightlifePage() {
         )}
       </AnimatePresence>
 
+      <NightlifeVenueEventsSheet
+        pin={venueEventsPin}
+        open={Boolean(venueEventsPin) && !mnoEventId}
+        onClose={() => setVenueEventsPin(null)}
+        onSelectEvent={openMnoEvent}
+      />
+
+      <NightlifeMnoEventSheet
+        eventId={mnoEventId}
+        open={Boolean(mnoEventId)}
+        onClose={() => {
+          setMnoEventId(null);
+          setVenueEventsPin(null);
+        }}
+        onBack={
+          venueEventsPin
+            ? () => setMnoEventId(null)
+            : undefined
+        }
+        yapTickets={nightlifeTickets}
+        onBuyYap={handleBuyTicket}
+        checkoutLoadingId={isCheckoutLoading}
+        onSellForEvent={handleSellForMnoEvent}
+        repCode={checkoutRepCode}
+        onRepCodeChange={handleCheckoutRepCodeChange}
+      />
+
       <SellTicketPanel
         open={showTicketForm}
         onClose={() => setShowTicketForm(false)}
-        title={ticketTitle}
-        venue={ticketVenue}
-        price={ticketPrice}
-        qty={ticketQty}
-        eventDate={ticketEventDate}
-        onTitleChange={setTicketTitle}
-        onVenueChange={setTicketVenue}
-        onPriceChange={setTicketPrice}
-        onQtyChange={setTicketQty}
-        onEventDateChange={setTicketEventDate}
         onSubmit={handleSellTicket}
+        mnoSellSeed={mnoSellSeed}
+        onMnoSellSeedConsumed={() => setMnoSellSeed(null)}
       />
 
       <AddPartyPanel

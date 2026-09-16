@@ -82,6 +82,82 @@ async function sendViaResend(email: string, code: string) {
   }
 }
 
+function ticketDeliveryHtml(title: string, venue: string) {
+  return `
+    <div style="font-family: system-ui, sans-serif; max-width: 440px; margin: 0 auto; padding: 32px;">
+      <h1 style="font-size: 22px; font-weight: 800; margin-bottom: 8px;">Your ticket is attached</h1>
+      <p style="color: #444; margin-bottom: 16px;">
+        Thanks for buying on YAP Nightlife. Your ticket for <strong>${title}</strong> at <strong>${venue}</strong> is attached to this email.
+      </p>
+      <p style="color: #666; font-size: 14px; line-height: 1.5;">
+        Show the attachment at the door (Fixr in-app tickets may still need the official app — follow the venue’s rules).
+      </p>
+      <p style="color: #999; font-size: 13px; margin-top: 28px;">Need help? Reply to this email or contact support via yap.college.</p>
+    </div>
+  `;
+}
+
+export async function sendNightlifeTicketEmail(options: {
+  to: string;
+  title: string;
+  venue: string;
+  attachment: Buffer;
+  filename: string;
+  contentType: string;
+}) {
+  ensureEnvLoaded();
+  const from = getEmailFrom();
+  const subject = `Your YAP ticket — ${options.title}`.slice(0, 120);
+
+  const resend = getResendClient();
+  if (resend) {
+    const { error } = await resend.emails.send({
+      from,
+      to: options.to,
+      subject,
+      html: ticketDeliveryHtml(options.title, options.venue),
+      attachments: [
+        {
+          filename: options.filename,
+          content: options.attachment,
+          contentType: options.contentType,
+        },
+      ],
+    });
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  if (isSmtpConfigured()) {
+    const host = process.env.SMTP_HOST!.trim();
+    const user = process.env.SMTP_USER!.trim();
+    const pass = process.env.SMTP_PASS!.trim();
+    const port = Number(process.env.SMTP_PORT ?? 587);
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM?.trim() ?? from,
+      to: options.to,
+      subject,
+      html: ticketDeliveryHtml(options.title, options.venue),
+      attachments: [
+        {
+          filename: options.filename,
+          content: options.attachment,
+          contentType: options.contentType,
+        },
+      ],
+    });
+    return;
+  }
+
+  throw new Error('Email not configured — cannot deliver ticket attachment.');
+}
+
 export async function sendVerificationEmail(email: string, code: string) {
   ensureEnvLoaded();
 

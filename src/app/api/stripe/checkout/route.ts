@@ -9,6 +9,7 @@ import {
 } from '@/lib/stripe';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { getTrustedOrigin, publicErrorMessage } from '@/lib/security';
+import { resolveSellerIdFromRepCode } from '@/lib/rep-code';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const ticketId = typeof body.ticketId === 'string' ? body.ticketId : '';
+    const repCodeRaw = typeof body.repCode === 'string' ? body.repCode.trim() : '';
     if (!ticketId) {
       return NextResponse.json({ error: 'Ticket ID required' }, { status: 400 });
     }
@@ -47,6 +49,13 @@ export async function POST(request: NextRequest) {
 
     if (ticket.sellerId === user.id) {
       return NextResponse.json({ error: 'Cannot buy your own ticket' }, { status: 400 });
+    }
+
+    if (!ticket.ticketProofUrl && !ticket.ticketProofData) {
+      return NextResponse.json(
+        { error: 'This listing has no ticket file yet. Ask the seller to re-list with their ticket uploaded.' },
+        { status: 400 },
+      );
     }
 
     const sellerAccountId = ticket.seller.stripeAccountId;
@@ -69,6 +78,12 @@ export async function POST(request: NextRequest) {
     const origin = getTrustedOrigin(request);
     const amount = Math.max(50, Math.round(ticket.price * 100));
 
+    let repSellerId: string | undefined;
+    if (repCodeRaw) {
+      const resolved = await resolveSellerIdFromRepCode(repCodeRaw);
+      if (resolved === ticket.sellerId) repSellerId = resolved;
+    }
+
     await prisma.nightlifeTicket.update({
       where: { id: ticketId },
       data: { status: 'reserved' },
@@ -80,13 +95,17 @@ export async function POST(request: NextRequest) {
         success_url: `${origin}/?tab=nightlife&checkout=success`,
         cancel_url: `${origin}/?tab=nightlife&checkout=cancel&ticketId=${ticket.id}`,
         expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+        customer_email: user.email ?? undefined,
         metadata: {
           ticketId: ticket.id,
           buyerId: user.id,
+          ...(repSellerId ? { repSellerId } : {}),
         },
         payment_intent_data: {
-          transfer_data: {
-            destination: sellerAccountId,
+          metadata: {
+            ticketId: ticket.id,
+            sellerId: ticket.sellerId,
+            sellerAccountId,
           },
         },
         line_items: [

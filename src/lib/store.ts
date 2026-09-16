@@ -14,6 +14,7 @@ import {
 } from '@/types';
 import { api } from '@/lib/api';
 import { applyOptimisticReaction } from '@/lib/optimistic';
+import { clearSellerDashboardCache } from '@/lib/seller-dashboard-cache';
 
 interface UserProfile {
   id: string;
@@ -44,6 +45,45 @@ function readSetting(key: string, fallback: boolean) {
   if (v === '1') return true;
   if (v === '0') return false;
   return fallback;
+}
+
+const STRIPE_STATUS_CACHE_KEY = 'yap-stripe-seller-status';
+
+export type StripeSellerStatus = {
+  enabled: boolean;
+  connectAccount: boolean;
+  onboardingComplete: boolean;
+  canReceivePayments: boolean;
+  webhooks: boolean;
+};
+
+function readStripeStatusCache(): StripeSellerStatus | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(STRIPE_STATUS_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as StripeSellerStatus;
+  } catch {
+    return null;
+  }
+}
+
+function persistStripeStatusCache(status: StripeSellerStatus) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(STRIPE_STATUS_CACHE_KEY, JSON.stringify(status));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearStripeStatusCache() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(STRIPE_STATUS_CACHE_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 function normalizeConversation(c: Conversation): Conversation {
@@ -100,7 +140,18 @@ interface AppState {
   recordListingView: (listingId: string) => Promise<void>;
 
   nightlifeTickets: NightlifeTicket[];
-  addNightlifeTicket: (ticket: Omit<NightlifeTicket, 'id' | 'sellerName' | 'isSold'>) => Promise<void>;
+  addNightlifeTicket: (
+    ticket: Omit<NightlifeTicket, 'id' | 'sellerName' | 'isSold'> & {
+      ticketProofMime: string;
+      ticketProofUrl?: string;
+      ticketProofBase64?: string;
+      eventEndDate?: Date;
+      mnoEventId?: string;
+      mnoTicketId?: string;
+    },
+  ) => Promise<void>;
+  removeNightlifeTicket: (ticketId: string) => void;
+  patchNightlifeTicket: (ticketId: string, patch: Partial<NightlifeTicket>) => void;
   nightlifePins: NightlifePin[];
   addNightlifePin: (pin: Omit<NightlifePin, 'id'>) => Promise<void>;
 
@@ -155,6 +206,10 @@ interface AppState {
 
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
+  showSellerDashboard: boolean;
+  setShowSellerDashboard: (show: boolean) => void;
+  stripeSellerStatus: StripeSellerStatus | null;
+  refreshStripeSellerStatus: () => Promise<void>;
   pushNotificationsEnabled: boolean;
   setPushNotificationsEnabled: (enabled: boolean) => void;
   emailNotificationsEnabled: boolean;
@@ -172,11 +227,13 @@ export const useStore = create<AppState>((set, get) => ({
   userProfile: null,
 
   loadLocalPreferences: () => {
+    const cachedStripe = readStripeStatusCache();
     set({
       pushNotificationsEnabled: readSetting('yap-push-notifications', true),
       emailNotificationsEnabled: readSetting('yap-email-notifications', true),
       showActivityStatus: readSetting('yap-show-activity', true),
       anonymousByDefault: readSetting('yap-anonymous-default', true),
+      ...(cachedStripe ? { stripeSellerStatus: cachedStripe } : {}),
     });
   },
 
@@ -196,6 +253,7 @@ export const useStore = create<AppState>((set, get) => ({
         nightlifeTickets: data.nightlifeTickets.map((t) => ({
           ...t,
           eventDate: new Date(t.eventDate),
+          ...(t.eventEndDate ? { eventEndDate: new Date(t.eventEndDate) } : {}),
         })),
         nightlifePins: data.nightlifePins,
         notifications: data.notifications.map((n) => ({ ...n, timestamp: new Date(n.timestamp) })),
@@ -205,6 +263,7 @@ export const useStore = create<AppState>((set, get) => ({
         isHydrating: false,
         hydrationError: null,
       });
+      void get().refreshStripeSellerStatus();
     } catch (err) {
       set({
         isHydrating: false,
@@ -231,6 +290,7 @@ export const useStore = create<AppState>((set, get) => ({
           nightlifeTickets: data.nightlifeTickets.map((t) => ({
             ...t,
             eventDate: new Date(t.eventDate),
+            ...(t.eventEndDate ? { eventEndDate: new Date(t.eventEndDate) } : {}),
           })),
           nightlifePins: data.nightlifePins,
           notifications: data.notifications.map((n) => ({
@@ -634,11 +694,25 @@ export const useStore = create<AppState>((set, get) => ({
     });
     set((state) => ({
       nightlifeTickets: [
-        { ...created, eventDate: new Date(created.eventDate) },
+        {
+          ...created,
+          eventDate: new Date(created.eventDate),
+          ...(created.eventEndDate ? { eventEndDate: new Date(created.eventEndDate) } : {}),
+        },
         ...state.nightlifeTickets,
       ],
     }));
   },
+  removeNightlifeTicket: (ticketId) =>
+    set((state) => ({
+      nightlifeTickets: state.nightlifeTickets.filter((t) => t.id !== ticketId),
+    })),
+  patchNightlifeTicket: (ticketId, patch) =>
+    set((state) => ({
+      nightlifeTickets: state.nightlifeTickets.map((t) =>
+        t.id === ticketId ? { ...t, ...patch } : t,
+      ),
+    })),
   nightlifePins: [],
   addNightlifePin: async (pin) => {
     const { pin: created } = await api<{ pin: NightlifePin }>('/api/nightlife/pins', {
@@ -779,9 +853,12 @@ export const useStore = create<AppState>((set, get) => ({
 
   activeTab: 'feed',
   setActiveTab: (tab) => set({ activeTab: tab }),
-  resetAppState: () =>
+  resetAppState: () => {
+    clearStripeStatusCache();
+    clearSellerDashboardCache();
     set({
       showSettings: false,
+      showSellerDashboard: false,
       activeTab: 'feed',
       selectedPostId: null,
       selectedListing: null,
@@ -792,7 +869,9 @@ export const useStore = create<AppState>((set, get) => ({
       isHydrated: false,
       hydrationError: null,
       userProfile: null,
-    }),
+      stripeSellerStatus: null,
+    });
+  },
   showCreateModal: false,
   setShowCreateModal: (show) => set({ showCreateModal: show }),
   createMode: 'post',
@@ -804,7 +883,7 @@ export const useStore = create<AppState>((set, get) => ({
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
   showSearch: false,
-  setShowSearch: (show) => set({ showSearch: show, searchQuery: show ? get().searchQuery : '' }),
+  setShowSearch: (show) => set({ showSearch: show }),
 
   theme: 'light',
   themePreference: 'system',
@@ -819,6 +898,26 @@ export const useStore = create<AppState>((set, get) => ({
 
   showSettings: false,
   setShowSettings: (show) => set({ showSettings: show }),
+  showSellerDashboard: false,
+  setShowSellerDashboard: (show) => set({ showSellerDashboard: show }),
+  stripeSellerStatus: null,
+  refreshStripeSellerStatus: async () => {
+    try {
+      const res = await fetch('/api/stripe/status', { cache: 'no-store' });
+      const d = await res.json();
+      const status: StripeSellerStatus = {
+        enabled: Boolean(d.enabled),
+        connectAccount: Boolean(d.connectAccount),
+        onboardingComplete: Boolean(d.onboardingComplete ?? d.payoutsReady),
+        canReceivePayments: Boolean(d.canReceivePayments ?? d.payoutsReady),
+        webhooks: Boolean(d.webhooks),
+      };
+      persistStripeStatusCache(status);
+      set({ stripeSellerStatus: status });
+    } catch {
+      /* keep cached status */
+    }
+  },
   pushNotificationsEnabled: true,
   setPushNotificationsEnabled: (enabled) => {
     persistSetting('yap-push-notifications', enabled);

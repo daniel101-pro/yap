@@ -190,7 +190,7 @@ export default function CommentSheet({ postId, onClose }: CommentSheetProps) {
     try {
       await addComment(postId, text, replyTarget || undefined);
     } catch {
-      setSubmitError('Could not send — check your connection and try again.');
+      setSubmitError('Didn’t send. Check wifi and try again.');
       setNewComment(text);
       if (replyTarget) setReplyingTo(replyTarget);
     } finally {

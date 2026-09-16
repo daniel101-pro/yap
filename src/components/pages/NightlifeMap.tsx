@@ -9,6 +9,7 @@ interface NightlifeMapProps {
   pins: NightlifePin[];
   draftPin: { lat: number; lng: number } | null;
   onMapClick: (coords: { lat: number; lng: number }) => void;
+  onOpenVenueEvents?: (pin: NightlifePin) => void;
 }
 
 function MapClickCapture({ onMapClick }: { onMapClick: (coords: { lat: number; lng: number }) => void }) {
@@ -29,7 +30,7 @@ function MapZoomWatcher({ onZoomChange }: { onZoomChange: (zoom: number) => void
   return null;
 }
 
-export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMapProps) {
+export default function NightlifeMap({ pins, draftPin, onMapClick, onOpenVenueEvents }: NightlifeMapProps) {
   const [zoomLevel, setZoomLevel] = useState(14);
   const safePins: Array<{
     id: string;
@@ -137,13 +138,25 @@ export default function NightlifeMap({ pins, draftPin, onMapClick }: NightlifeMa
                 {pin.isApproximate && (
                   <p className="text-[11px] text-neutral-500">Approximate area</p>
                 )}
+                {pin.type === 'nightclub' && onOpenVenueEvents && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const full = pins.find((p) => p.id === pin.id);
+                      if (full) onOpenVenueEvents(full);
+                    }}
+                    className="block text-xs font-bold text-[#00796B]"
+                  >
+                    Events
+                  </button>
+                )}
                 <a
                   href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${pin.lat},${pin.lng}`)}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-xs font-semibold text-[#00796B]"
                 >
-                  Get directions
+                  Directions
                 </a>
               </div>
             </Popup>

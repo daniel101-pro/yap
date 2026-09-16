@@ -125,10 +125,13 @@ export interface NightlifeTicket {
   venue: string;
   price: number;
   eventDate: Date;
+  eventEndDate?: Date;
   sellerName: string;
   quantity?: number;
   status?: 'active' | 'sold' | 'reserved';
   isSold: boolean;
+  mnoEventId?: string;
+  mnoTicketId?: string;
 }
 
 export interface NightlifePin {
@@ -142,4 +145,37 @@ export interface NightlifePin {
   isOpen?: boolean;
   isApproximate?: boolean;
   isOwn?: boolean;
+}
+
+export type EventSuggestionSource = 'fatsoma' | 'fixr' | 'yap';
+
+export interface EventSuggestion {
+  id: string;
+  title: string;
+  venue: string;
+  eventDate: string;
+  suggestedPrice?: number;
+  source: EventSuggestionSource;
+  sourceUrl?: string;
+  /** Fatsoma event UUID when source is fatsoma */
+  fatsomaEventId?: string;
+  fixrEventId?: string;
+  fixrShopId?: string;
+}
+
+export interface EventTicketType {
+  id: string;
+  name: string;
+  price: number;
+  saleStatus: string;
+}
+
+export interface EventListingOptions {
+  eventId: string;
+  title: string;
+  venue: string;
+  eventDate: string;
+  sourceUrl?: string;
+  source?: EventSuggestionSource;
+  ticketTypes: EventTicketType[];
 }

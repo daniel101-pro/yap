@@ -34,6 +34,14 @@ export async function POST() {
 
     let accountId = dbUser?.stripeAccountId;
 
+    if (accountId) {
+      const existing = await stripe.accounts.retrieve(accountId);
+      if (existing.details_submitted) {
+        const login = await stripe.accounts.createLoginLink(accountId);
+        return NextResponse.json({ url: login.url, alreadyComplete: true });
+      }
+    }
+
     if (!accountId) {
       const account = await stripe.accounts.create({
         type: 'express',

@@ -16,6 +16,7 @@ model User {
   anonymousHandle   String?   @unique
   stripeAccountId   String?
   karma             Int       @default(0)
+  repCode           String?   @unique
   isBanned          Boolean   @default(false)
   bannedAt          DateTime?
   passwordHash      String?
@@ -38,6 +39,17 @@ model User {
   blockedByOthers     BlockedUser[] @relation("Blocked")
   nightlifePins       NightlifePin[]
   commentUpvotes      CommentUpvote[]
+  repCodeUses         RepCodeUse[]
+}
+
+model RepCodeUse {
+  id        String   @id @default(cuid())
+  sellerId  String
+  usedAt    DateTime @default(now())
+  ticketId  String?
+  seller    User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
 }
 
 model Report {
@@ -208,13 +220,24 @@ model NightlifeTicket {
   venue                 String
   price                 Float
   eventDate             DateTime
+  eventEndDate          DateTime?
   quantity              Int      @default(1)
   status                String   @default("active")
+  mnoEventId            String?
+  mnoTicketId           String?
   sellerStripeAccountId String?
+  ticketProofUrl        String?
+  ticketProofMime       String?
+  ticketProofData       Bytes?
+  soldAt                DateTime?
+  payoutReleasedAt      DateTime?
+  stripePaymentIntentId String?
+  saleAmountPence       Int?
   createdAt             DateTime @default(now())
   seller                User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@index([eventDate])
+  @@index([sellerId, status])
 }
 
 model NightlifePin {

@@ -34,7 +34,7 @@ export default function FeedPage() {
 
       {!searchQuery.trim() && feedFilter === 'all' && (
         <p className="px-5 pb-2 text-[11px] text-muted-light">
-          New posts first — reacts push posts up
+          New first. Reacts bump posts up.
         </p>
       )}
 

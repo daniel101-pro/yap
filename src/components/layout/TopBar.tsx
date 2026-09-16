@@ -56,7 +56,7 @@ export default function TopBar() {
                     : activeTab === 'market'
                       ? 'Search listings...'
                       : activeTab === 'nightlife'
-                        ? 'Search tickets and venues...'
+                        ? 'Search events, clubs...'
                         : 'Search...'
                 }
                 className="flex-1 bg-transparent text-[15px] text-foreground placeholder:text-muted-light focus:outline-none"

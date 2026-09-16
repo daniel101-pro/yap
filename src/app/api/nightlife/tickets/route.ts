@@ -5,6 +5,7 @@ import { ensureAnonymousHandle } from '@/lib/anonymous';
 import { serializeTicket } from '@/lib/serializers';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { clampString, LIMITS, parseBoundedNumber } from '@/lib/validation';
+import { decodeTicketProofBase64, isAllowedTicketProofUrl } from '@/lib/ticket-proof';
 
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
@@ -23,18 +24,51 @@ export async function POST(request: NextRequest) {
   const price = parseBoundedNumber(body.price, 0.5, LIMITS.priceMax);
   const quantity = parseBoundedNumber(body.quantity ?? 1, 1, LIMITS.ticketQtyMax);
 
+  const ticketProofUrl =
+    typeof body.ticketProofUrl === 'string' ? body.ticketProofUrl.trim() : '';
+  const ticketProofMime =
+    typeof body.ticketProofMime === 'string' ? body.ticketProofMime.trim().slice(0, 80) : null;
+  const ticketProofBase64 =
+    typeof body.ticketProofBase64 === 'string' ? body.ticketProofBase64.trim() : '';
+
   if (!title || !venue || price === null || quantity === null) {
     return NextResponse.json({ error: 'Valid title, venue, price, and quantity required' }, { status: 400 });
+  }
+
+  let ticketProofData: Buffer | undefined;
+  if (ticketProofBase64) {
+    const decoded = decodeTicketProofBase64(ticketProofBase64);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Invalid ticket file upload' }, { status: 400 });
+    }
+    ticketProofData = decoded;
+  } else if (!ticketProofUrl || !isAllowedTicketProofUrl(ticketProofUrl)) {
+    return NextResponse.json({ error: 'Upload your ticket (screenshot or PDF) before listing' }, { status: 400 });
   }
 
   const eventDate = body.eventDate ? new Date(body.eventDate) : new Date(Date.now() + 86400000);
   if (Number.isNaN(eventDate.getTime())) {
     return NextResponse.json({ error: 'Invalid event date' }, { status: 400 });
   }
+  const eventEndRaw = body.eventEndDate ? new Date(body.eventEndDate) : null;
+  const eventEnd =
+    eventEndRaw && !Number.isNaN(eventEndRaw.getTime())
+      ? eventEndRaw
+      : new Date(eventDate.getTime() + 6 * 60 * 60 * 1000);
   const now = Date.now();
-  if (eventDate.getTime() < now - 60_000 || eventDate.getTime() > now + 366 * 86400000) {
-    return NextResponse.json({ error: 'Event date must be in the next year' }, { status: 400 });
+  if (eventEnd.getTime() < now - 60_000) {
+    return NextResponse.json({ error: 'That night is already over' }, { status: 400 });
   }
+  if (eventDate.getTime() > now + 366 * 86400000) {
+    return NextResponse.json({ error: 'Event date is too far out' }, { status: 400 });
+  }
+
+  const mnoEventId =
+    typeof body.mnoEventId === 'string' && body.mnoEventId.trim() ? body.mnoEventId.trim().slice(0, 32) : null;
+  const mnoTicketId =
+    typeof body.mnoTicketId === 'string' && body.mnoTicketId.trim()
+      ? body.mnoTicketId.trim().slice(0, 32)
+      : null;
 
   await ensureAnonymousHandle(user.id);
 
@@ -45,8 +79,14 @@ export async function POST(request: NextRequest) {
       venue,
       price,
       eventDate,
+      eventEndDate: eventEnd,
       quantity: Math.round(quantity),
       status: 'active',
+      mnoEventId,
+      mnoTicketId,
+      ticketProofUrl: ticketProofData ? null : ticketProofUrl,
+      ticketProofMime,
+      ticketProofData,
     },
     include: { seller: { select: { anonymousHandle: true } } },
   });

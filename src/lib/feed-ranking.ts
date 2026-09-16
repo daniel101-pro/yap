@@ -125,20 +125,30 @@ export function scorePost(post: Post, ctx: RankingContext): number {
   return engagement * gravity * affinity * freshnessBurst * engagedPenalty * ownBoost;
 }
 
-export function rankPosts(posts: Post[], ctx: RankingContext, searchQuery?: string): Post[] {
-  const q = searchQuery?.trim().toLowerCase();
+function searchTokens(raw?: string): string[] {
+  return raw?.trim().toLowerCase().split(/\s+/).filter(Boolean) ?? [];
+}
 
-  if (!q) {
+function tokensMatchHaystack(tokens: string[], hay: string): boolean {
+  if (tokens.length === 0) return true;
+  return tokens.every((t) => hay.includes(t));
+}
+
+export function rankPosts(posts: Post[], ctx: RankingContext, searchQuery?: string): Post[] {
+  const tokens = searchTokens(searchQuery);
+
+  if (tokens.length === 0) {
     return rankPostsByRecencyAndReactions(posts);
   }
 
   const scored = posts.map((post) => {
     const content = post.content.toLowerCase();
     const pollQ = post.poll?.question?.toLowerCase() ?? '';
+    const hay = `${content} ${pollQ} ${post.category}`;
     let relevance = 0;
-    if (content.includes(q)) relevance += 12;
-    if (pollQ.includes(q)) relevance += 10;
-    if (post.category.includes(q)) relevance += 6;
+    if (tokensMatchHaystack(tokens, hay)) relevance += 12;
+    if (tokens.every((t) => content.includes(t))) relevance += 6;
+    if (tokens.every((t) => pollQ.includes(t))) relevance += 4;
 
     return { post, relevance };
   });
@@ -194,33 +204,38 @@ export function rankListings(
   ctx: RankingContext,
   searchQuery?: string,
 ): Listing[] {
-  const q = searchQuery?.trim().toLowerCase();
+  const tokens = searchTokens(searchQuery);
 
   const scored = listings.map((listing) => {
     let score = scoreListing(listing, ctx);
 
-    if (q) {
-      const title = listing.title.toLowerCase();
-      const desc = listing.description.toLowerCase();
+    if (tokens.length > 0) {
+      const hay = `${listing.title} ${listing.description} ${listing.category}`.toLowerCase();
       let relevance = 0;
-      if (title.includes(q)) relevance += 15;
-      if (title.startsWith(q)) relevance += 8;
-      if (desc.includes(q)) relevance += 6;
-      if (listing.category.includes(q)) relevance += 5;
+      if (tokensMatchHaystack(tokens, hay)) relevance += 15;
+      if (tokens.every((t) => listing.title.toLowerCase().includes(t))) relevance += 8;
       score = relevance > 0 ? relevance * 4 + score * 0.35 : score * 0.1;
     }
 
     return { listing, score };
   });
 
-  scored.sort((a, b) => {
+  let pool = scored;
+  if (tokens.length > 0) {
+    pool = scored.filter((s) => {
+      const hay = `${s.listing.title} ${s.listing.description} ${s.listing.category}`.toLowerCase();
+      return tokensMatchHaystack(tokens, hay);
+    });
+  }
+
+  pool.sort((a, b) => {
     if (a.listing.isSold !== b.listing.isSold) {
       return a.listing.isSold ? 1 : -1;
     }
     return b.score - a.score;
   });
 
-  return scored.map((s) => s.listing);
+  return pool.map((s) => s.listing);
 }
 
 export function isFeaturedListing(listing: Listing, ctx: RankingContext): boolean {

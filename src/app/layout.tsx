@@ -9,7 +9,7 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "YAP — Your Campus, Unfiltered",
+  title: 'YAP · Your Campus, Unfiltered',
   description: "Anonymous social + marketplace for University of Exeter students. Verified. Real. Unfiltered.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

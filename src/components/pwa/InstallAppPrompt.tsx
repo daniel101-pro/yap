@@ -104,7 +104,7 @@ export default function InstallAppPrompt({ userId, ready }: InstallAppPromptProp
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-exeter/10 text-exeter">
                       <Smartphone className="h-4 w-4" strokeWidth={2} />
                     </span>
-                    Tap <strong>Add</strong> — YAP shows on your home screen
+                    Tap <strong>Add</strong>. YAP lands on your home screen.
                   </li>
                 </ol>
               </div>

@@ -301,7 +301,7 @@ export default function ProductDetail({ listing, onBack, onViewSeller }: Product
         <div className="fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-xl border-t border-divider px-4 py-3 flex items-center gap-3 z-50">
           {listing.isOwn ? (
             <p className="flex-1 py-3.5 text-center text-sm font-medium text-muted">
-              {listing.isSold ? 'Marked as sold — manage from Your shop' : 'Your listing — manage from Your shop'}
+              {listing.isSold ? 'Sold. Manage in Your shop.' : 'Your listing. Manage in Your shop.'}
             </p>
           ) : (
             <button

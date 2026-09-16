@@ -7,11 +7,14 @@ import type { NightlifePin } from '@/types';
 interface NightlifeVenueCardProps {
   pin: NightlifePin;
   index: number;
+  onOpenEvents?: (pin: NightlifePin) => void;
 }
 
-export default function NightlifeVenueCard({ pin, index }: NightlifeVenueCardProps) {
+export default function NightlifeVenueCard({ pin, index, onOpenEvents }: NightlifeVenueCardProps) {
   const isClub = pin.type === 'nightclub';
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${pin.lat},${pin.lng}`)}`;
+
+  const showEvents = isClub && onOpenEvents;
 
   return (
     <motion.div
@@ -52,15 +55,28 @@ export default function NightlifeVenueCard({ pin, index }: NightlifeVenueCardPro
           </p>
         </div>
       </div>
-      <a
-        href={mapsUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-background py-2.5 text-[12px] font-semibold text-foreground ring-1 ring-divider transition-colors hover:bg-surface"
-      >
-        <Navigation className="h-3.5 w-3.5" strokeWidth={2} />
-        Get directions
-      </a>
+      <div className="mt-3 flex gap-2">
+        {showEvents && (
+          <button
+            type="button"
+            onClick={() => onOpenEvents(pin)}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-exeter py-2.5 text-[12px] font-bold text-white"
+          >
+            Events
+          </button>
+        )}
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noreferrer"
+          className={`flex items-center justify-center gap-2 rounded-xl bg-background py-2.5 text-[12px] font-semibold text-foreground ring-1 ring-divider transition-colors hover:bg-surface ${
+            showEvents ? 'flex-1' : 'w-full'
+          }`}
+        >
+          <Navigation className="h-3.5 w-3.5" strokeWidth={2} />
+          Directions
+        </a>
+      </div>
     </motion.div>
   );
 }

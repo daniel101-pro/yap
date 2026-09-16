@@ -5,6 +5,9 @@ import {
   isStripeWebhookConfigured,
 } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
+import { sendNightlifeTicketEmail } from '@/lib/email';
+import { fetchTicketProofAttachment } from '@/lib/ticket-proof-fetch';
+import { recordRepCodeUse } from '@/lib/rep-code';
 
 export const runtime = 'nodejs';
 
@@ -46,13 +49,36 @@ export async function POST(request: NextRequest) {
     const session = event.data.object;
     const ticketId = session.metadata?.ticketId;
     const buyerId = session.metadata?.buyerId;
+    const repSellerId = session.metadata?.repSellerId;
 
     if (ticketId) {
+      const piRaw = session.payment_intent;
+      const stripePaymentIntentId =
+        typeof piRaw === 'string' ? piRaw : piRaw && typeof piRaw === 'object' && 'id' in piRaw
+          ? String((piRaw as { id: string }).id)
+          : null;
+      const saleAmountPence =
+        typeof session.amount_total === 'number' ? session.amount_total : null;
+      const soldAt = new Date();
+
       const ticket = await prisma.nightlifeTicket.update({
         where: { id: ticketId },
-        data: { status: 'sold' },
+        data: {
+          status: 'sold',
+          soldAt,
+          stripePaymentIntentId,
+          saleAmountPence,
+        },
         include: { seller: true },
       });
+
+      if (repSellerId && repSellerId === ticket.sellerId) {
+        try {
+          await recordRepCodeUse(ticket.sellerId, ticketId);
+        } catch (err) {
+          console.error('[webhook] rep code use', err);
+        }
+      }
 
       if (buyerId && ticket.sellerId !== buyerId) {
         await prisma.notification.create({
@@ -64,6 +90,46 @@ export async function POST(request: NextRequest) {
             listingId: ticketId,
           },
         });
+      }
+
+      const buyerEmail =
+        session.customer_details?.email ??
+        (buyerId
+          ? (await prisma.user.findUnique({ where: { id: buyerId }, select: { email: true } }))?.email
+          : null);
+
+      if (buyerEmail && (ticket.ticketProofUrl || ticket.ticketProofData)) {
+        try {
+          const attachment = await fetchTicketProofAttachment(
+            ticket.ticketProofUrl ?? '',
+            ticket.ticketProofMime ?? 'image/jpeg',
+            ticket.title,
+            ticket.ticketProofData,
+          );
+          if (attachment) {
+            await sendNightlifeTicketEmail({
+              to: buyerEmail,
+              title: ticket.title,
+              venue: ticket.venue,
+              attachment: attachment.buffer,
+              filename: attachment.filename,
+              contentType: attachment.contentType,
+            });
+            if (buyerId) {
+              await prisma.notification.create({
+                data: {
+                  userId: buyerId,
+                  type: 'system',
+                  title: 'Ticket sent to your email',
+                  body: `We emailed your ticket for "${ticket.title}" to ${buyerEmail}.`,
+                  listingId: ticketId,
+                },
+              });
+            }
+          }
+        } catch (err) {
+          console.error('[stripe webhook] ticket email failed', err);
+        }
       }
     }
   }

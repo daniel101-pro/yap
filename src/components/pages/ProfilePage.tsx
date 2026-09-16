@@ -180,7 +180,7 @@ export default function ProfilePage() {
             Recent Yaps
           </h3>
           {recentPosts.length === 0 ? (
-            <p className="py-4 text-center text-[13px] text-muted">No yaps yet — hit + to post</p>
+            <p className="py-4 text-center text-[13px] text-muted">No yaps yet. Hit + to post.</p>
           ) : (
             <div className="space-y-2">
               {recentPosts.map((post) => (

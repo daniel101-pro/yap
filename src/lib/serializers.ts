@@ -128,10 +128,13 @@ export function serializeTicket(
     venue: ticket.venue,
     price: ticket.price,
     eventDate: ticket.eventDate,
+    ...(ticket.eventEndDate ? { eventEndDate: ticket.eventEndDate } : {}),
     sellerName: ticket.seller.anonymousHandle ?? 'You',
     quantity: ticket.quantity,
     status: ticket.status as NightlifeTicket['status'],
     isSold: ticket.status === 'sold',
+    ...(ticket.mnoEventId ? { mnoEventId: ticket.mnoEventId } : {}),
+    ...(ticket.mnoTicketId ? { mnoTicketId: ticket.mnoTicketId } : {}),
   };
 }
 

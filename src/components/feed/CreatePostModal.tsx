@@ -139,7 +139,7 @@ export default function CreatePostModal() {
       }
       clearComposer();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not post — check your connection and try again.');
+      setSubmitError(err instanceof Error ? err.message : 'Post failed. Check wifi and try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -160,7 +160,7 @@ export default function CreatePostModal() {
       });
       clearComposer();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not list item — check your connection and try again.');
+      setSubmitError(err instanceof Error ? err.message : 'Listing failed. Check wifi and try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -237,8 +237,8 @@ export default function CreatePostModal() {
                 <Spinner size={14} />
                 {isSubmitting
                   ? createMode === 'post'
-                    ? 'Sending your yap — hang tight on slow wifi'
-                    : 'Creating your listing — hang tight on slow wifi'
+                    ? 'Sending… slow wifi moment'
+                    : 'Listing… slow wifi moment'
                   : uploadStatus}
               </div>
             )}

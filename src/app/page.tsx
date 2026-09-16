@@ -13,6 +13,7 @@ import MarketplacePage from '@/components/pages/MarketplacePage';
 import NightlifePage from '@/components/pages/NightlifePage';
 import ProfilePage from '@/components/pages/ProfilePage';
 import SettingsPage from '@/components/pages/SettingsPage';
+import SellerDashboardPage from '@/components/pages/SellerDashboardPage';
 import NotificationsPage from '@/components/pages/NotificationsPage';
 import { useLiveSync } from '@/hooks/useLiveSync';
 import AppToast, { type ToastState } from '@/components/ui/AppToast';
@@ -27,6 +28,7 @@ export default function Home() {
     setThemePreference,
     setResolvedTheme,
     showSettings,
+    showSellerDashboard,
     showNotifications,
     hydrateFromServer,
     isHydrated,
@@ -110,9 +112,10 @@ export default function Home() {
           body: JSON.stringify({ ticketId }),
         }).catch(() => undefined);
       }
-      setToast({ message: 'Checkout cancelled — ticket released back to the list.', type: 'error' });
+      setToast({ message: 'Checkout cancelled. Ticket’s back on the list.', type: 'error' });
     } else if (onboarding === 'complete') {
-      setToast({ message: 'Payouts set up — you can sell tickets now!', type: 'success' });
+      sessionStorage.setItem('yap-stripe-onboarding-complete', '1');
+      setToast({ message: 'Payouts connected. Your seller dashboard is open.', type: 'success' });
     } else if (onboarding === 'retry') {
       setToast({ message: 'Finish Stripe setup to receive ticket payouts.', type: 'error' });
     }
@@ -167,6 +170,14 @@ export default function Home() {
     return (
       <div className={`min-h-dvh bg-background ${theme === 'dark' ? 'dark' : ''}`}>
         <NotificationsPage />
+      </div>
+    );
+  }
+
+  if (showSellerDashboard) {
+    return (
+      <div className={`min-h-dvh bg-background ${theme === 'dark' ? 'dark' : ''}`}>
+        <SellerDashboardPage />
       </div>
     );
   }
