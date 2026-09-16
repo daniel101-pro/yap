@@ -39,12 +39,20 @@ export default function NightlifePage() {
   const [isConnectingStripe, setIsConnectingStripe] = useState(false);
   const [isCheckoutLoading, setIsCheckoutLoading] = useState<string | null>(null);
   const [stripeEnabled, setStripeEnabled] = useState<boolean | null>(null);
+  const [stripePayoutsReady, setStripePayoutsReady] = useState(false);
+  const [stripeHasConnect, setStripeHasConnect] = useState(false);
+  const [stripeWebhooks, setStripeWebhooks] = useState(true);
   const [stripeNotice, setStripeNotice] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/stripe/status')
       .then((r) => r.json())
-      .then((d) => setStripeEnabled(Boolean(d.enabled)))
+      .then((d) => {
+        setStripeEnabled(Boolean(d.enabled));
+        setStripePayoutsReady(Boolean(d.payoutsReady));
+        setStripeHasConnect(Boolean(d.connectAccount));
+        setStripeWebhooks(Boolean(d.webhooks));
+      })
       .catch(() => setStripeEnabled(false));
   }, []);
 
@@ -101,23 +109,38 @@ export default function NightlifePage() {
     setShowTicketForm(false);
   };
 
-  const handleStripeOnboard = async () => {
+  const openStripeConnect = async (path: 'onboard' | 'dashboard') => {
     if (stripeEnabled === false) {
       setStripeNotice('Payouts are not live on this server yet. Check back soon.');
       return;
     }
+    if (!stripeWebhooks) {
+      setStripeNotice(
+        'Payments need a webhook secret. Locally: run npm run stripe:listen and add whsec_… to .env. On yap.college: add STRIPE_WEBHOOK_SECRET in Vercel.',
+      );
+      return;
+    }
+
     setStripeNotice(null);
     setIsConnectingStripe(true);
     try {
-      const response = await fetch('/api/stripe/connect/onboard', { method: 'POST' });
+      const response = await fetch(`/api/stripe/connect/${path}`, { method: 'POST' });
       const data = await response.json();
       if (isTrustedStripeRedirect(data?.url)) window.location.href = data.url;
-      else setStripeNotice(data?.error ?? 'Could not start payout setup. Try again in a moment.');
+      else setStripeNotice(data?.error ?? 'Could not open Stripe. Try again in a moment.');
     } catch {
       setStripeNotice('Could not connect to payments. Check your network and try again.');
     } finally {
       setIsConnectingStripe(false);
     }
+  };
+
+  const handleStripePayouts = () => {
+    if (stripeHasConnect && stripePayoutsReady) {
+      void openStripeConnect('dashboard');
+      return;
+    }
+    void openStripeConnect('onboard');
   };
 
   const handleBuyTicket = async (ticketId: string) => {
@@ -296,12 +319,18 @@ export default function NightlifePage() {
               <div className="flex shrink-0 gap-2">
                 <button
                   type="button"
-                  onClick={handleStripeOnboard}
+                  onClick={handleStripePayouts}
                   disabled={isConnectingStripe || stripeEnabled === false}
                   className="flex items-center gap-1.5 rounded-full bg-surface px-3 py-2 text-[11px] font-semibold text-foreground ring-1 ring-divider disabled:opacity-50"
                 >
                   <Wallet className="h-3.5 w-3.5" strokeWidth={2} />
-                  {isConnectingStripe ? '…' : stripeEnabled === false ? 'Payouts soon' : 'Payouts'}
+                  {isConnectingStripe
+                    ? '…'
+                    : stripeEnabled === false
+                      ? 'Payouts soon'
+                      : stripePayoutsReady
+                        ? 'Manage payouts'
+                        : 'Set up payouts'}
                 </button>
                 <button
                   type="button"

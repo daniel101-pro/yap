@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { ensureSeedBots } from '@/lib/seed-bots';
 
 const DEFAULT_PINS = [
   {
@@ -39,8 +40,10 @@ const DEFAULT_PINS = [
   },
 ];
 
-/** Seed only static venue pins — no fake posts, listings, or tickets. */
+/** Seed venue pins + reaction-only bots — no fake posts, listings, or tickets. */
 export async function seedDatabaseIfEmpty() {
+  await ensureSeedBots();
+
   const pinCount = await prisma.nightlifePin.count();
   if (pinCount > 0) return;
 

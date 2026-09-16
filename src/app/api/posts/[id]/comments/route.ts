@@ -7,6 +7,7 @@ import { awardKarma } from '@/lib/karma';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { getBlockedAuthorIds, isEitherBlocked } from '@/lib/moderation';
 import { clampString, LIMITS } from '@/lib/validation';
+import { isSeedEmail, seedAuthorFilter } from '@/lib/seed-bots';
 
 export async function GET(
   _request: NextRequest,
@@ -27,7 +28,7 @@ export async function GET(
   const visible = {
     hiddenAt: null,
     authorId: { notIn: blockedAuthorIds },
-    author: { isBanned: false },
+    author: { isBanned: false, ...seedAuthorFilter },
   };
 
   const comments = await prisma.comment.findMany({
@@ -54,6 +55,10 @@ export async function POST(
   const user = await getSessionUser();
   if (!user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (isSeedEmail(user.email)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const limit = checkRateLimit(`create-comment:${user.id}`, 20, 10 * 60 * 1000);

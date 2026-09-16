@@ -12,11 +12,16 @@ import {
   sanitizeMediaItems,
   sanitizePoll,
 } from '@/lib/validation';
+import { isSeedEmail, sprinkleSeedReactions } from '@/lib/seed-bots';
 
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
   if (!user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (isSeedEmail(user.email)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const limit = checkRateLimit(`create-post:${user.id}`, 5, 10 * 60 * 1000);
@@ -53,5 +58,18 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  return NextResponse.json({ post: serializePost(post, user.id) });
+  await sprinkleSeedReactions(post.id);
+
+  const withReactions = await prisma.post.findUnique({
+    where: { id: post.id },
+    include: {
+      reactions: true,
+      pollVotes: { where: { userId: user.id } },
+      _count: { select: { comments: true } },
+    },
+  });
+
+  return NextResponse.json({
+    post: serializePost(withReactions ?? post, user.id),
+  });
 }

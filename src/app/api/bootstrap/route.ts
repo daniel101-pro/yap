@@ -13,6 +13,7 @@ import { serializeConversation } from '@/lib/serializers-messages';
 import { seedDatabaseIfEmpty } from '@/lib/seed';
 import { getBlockedAuthorIds } from '@/lib/moderation';
 import { HOUSE_PARTY_TTL_MS, MAX_PUBLIC_PINS } from '@/lib/pin-privacy';
+import { seedAuthorFilter } from '@/lib/seed-bots';
 
 const sellerInclude = {
   seller: {
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.post.findMany({
         where: {
-          author: { email: { not: { startsWith: 'seed-' } }, isBanned: false },
+          author: { ...seedAuthorFilter, isBanned: false },
           authorId: { notIn: blockedAuthorIds },
           hiddenAt: null,
         },
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.listing.findMany({
         where: {
-          seller: { email: { not: { startsWith: 'seed-' } }, isBanned: false },
+          seller: { ...seedAuthorFilter, isBanned: false },
           sellerId: { notIn: blockedAuthorIds },
           hiddenAt: null,
           OR: [{ isSold: false }, { sellerId: userId }],
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.nightlifeTicket.findMany({
         where: {
-          seller: { email: { not: { startsWith: 'seed-' } }, isBanned: false },
+          seller: { ...seedAuthorFilter, isBanned: false },
           status: 'active',
           eventDate: { gte: new Date() },
         },

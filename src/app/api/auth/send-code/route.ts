@@ -5,13 +5,14 @@ import { generateOtpCode, hashOtp, getOtpExpiry, OTP_TTL_MS, OTP_RESEND_COOLDOWN
 import { sendVerificationEmail } from '@/lib/email';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { publicErrorMessage } from '@/lib/security';
+import { isSeedEmail } from '@/lib/seed-bots';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const email = typeof body.email === 'string' ? normalizeEmail(body.email) : '';
 
-    if (!isExeterEmail(email)) {
+    if (!isExeterEmail(email) || isSeedEmail(email)) {
       return NextResponse.json({ error: 'Must be an @exeter.ac.uk email' }, { status: 400 });
     }
 

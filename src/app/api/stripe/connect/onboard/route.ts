@@ -45,6 +45,7 @@ export async function POST() {
         },
         business_profile: {
           product_description: 'Student nightlife ticket resale via YAP',
+          mcc: '7922',
         },
       });
       accountId = account.id;
