@@ -21,6 +21,7 @@ import { writeSellerDashboardCache } from '@/lib/seller-dashboard-cache';
 type NightlifeView = 'tickets' | 'map';
 const NightlifeMap = dynamic(() => import('./NightlifeMap'), { ssr: false });
 const NIGHTLIFE_REP_STORAGE = 'yap-nightlife-rep-code';
+const IS_DEV = process.env.NODE_ENV === 'development';
 
 function normalizeCheckoutRepCode(raw: string): string {
   return raw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 12);
@@ -215,9 +216,9 @@ export default function NightlifePage() {
       setStripeNotice('Checkout is not live yet. Browsing still works.');
       return;
     }
-    if (!stripeWebhooks) {
+    if (IS_DEV && !stripeWebhooks) {
       setStripeNotice(
-        'Save STRIPE_WEBHOOK_SECRET in .env (from npm run stripe:listen), restart npm run dev, and keep the listen terminal open while testing checkout.',
+        'Local checkout needs webhooks: run npm run stripe:listen, put whsec_… in .env, restart dev, keep that terminal open.',
       );
       return;
     }
@@ -376,13 +377,12 @@ export default function NightlifePage() {
               </div>
             )}
 
-            {stripeEnabled && !stripeWebhooks && (
+            {IS_DEV && stripeEnabled && !stripeWebhooks && (
               <div className="mb-4 rounded-xl bg-amber-500/10 px-4 py-3 text-[12px] leading-relaxed text-amber-800 ring-1 ring-amber-500/20 dark:text-amber-200">
-                <strong>Local webhook setup:</strong> run{' '}
-                <code className="rounded bg-black/10 px-1">npm run stripe:listen</code>, copy the{' '}
-                <code className="rounded bg-black/10 px-1">whsec_…</code> into{' '}
-                <code className="rounded bg-black/10 px-1">.env</code>, save the file, restart{' '}
-                <code className="rounded bg-black/10 px-1">npm run dev</code>. Keep the listen terminal open for checkout tests.
+                <strong>Local only:</strong> run{' '}
+                <code className="rounded bg-black/10 px-1">npm run stripe:listen</code>, add{' '}
+                <code className="rounded bg-black/10 px-1">whsec_…</code> to{' '}
+                <code className="rounded bg-black/10 px-1">.env</code>, restart dev, keep listen running for checkout tests.
               </div>
             )}
 
