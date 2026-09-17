@@ -667,6 +667,72 @@ function EventSlotRow({
   );
 }
 
+function TicketProofPreview({ ticketId, expectPdf }: { ticketId: string; expectPdf: boolean }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [isPdf, setIsPdf] = useState(expectPdf);
+
+  useEffect(() => {
+    let blobUrl: string | null = null;
+    setLoading(true);
+    setFailed(false);
+    setIsPdf(expectPdf);
+    setObjectUrl(null);
+
+    fetch(`/api/nightlife/tickets/${encodeURIComponent(ticketId)}/proof-image`, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('proof unavailable');
+        const blob = await res.blob();
+        if (blob.type.includes('pdf')) {
+          setIsPdf(true);
+          return;
+        }
+        blobUrl = URL.createObjectURL(blob);
+        setObjectUrl(blobUrl);
+      })
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
+
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [ticketId, expectPdf]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-exeter" />
+      </div>
+    );
+  }
+
+  if (isPdf) {
+    return (
+      <div className="flex items-center justify-center gap-2 rounded-xl bg-background py-10 text-[13px] text-muted ring-1 ring-divider">
+        <Calendar className="h-5 w-5" strokeWidth={2} />
+        PDF ticket on file
+      </div>
+    );
+  }
+
+  if (failed || !objectUrl) {
+    return <p className="py-8 text-center text-[13px] text-muted">Could not load preview</p>;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={objectUrl}
+      alt="Your ticket upload"
+      className="mx-auto max-h-56 w-full rounded-xl object-contain bg-black/5"
+    />
+  );
+}
+
 function TicketManageCard({
   row,
   busy,
@@ -678,10 +744,6 @@ function TicketManageCard({
   onSavePrice: (price: number) => void;
   onDelete: () => void;
 }) {
-  const proofSrc = row.hasProof && !row.proofIsPdf
-    ? `/api/nightlife/tickets/${encodeURIComponent(row.id)}/proof-image`
-    : null;
-
   return (
     <li className="overflow-hidden rounded-2xl bg-surface ring-1 ring-divider">
       <div className="border-b border-divider px-4 py-2.5">
@@ -690,18 +752,8 @@ function TicketManageCard({
         <p className="text-[12px] text-muted">{row.venue}</p>
       </div>
       <div className="p-4">
-        {proofSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={proofSrc}
-            alt="Your ticket upload"
-            className="mx-auto max-h-56 w-full rounded-xl object-contain bg-black/5"
-          />
-        ) : row.proofIsPdf ? (
-          <div className="flex items-center justify-center gap-2 rounded-xl bg-background py-10 text-[13px] text-muted ring-1 ring-divider">
-            <Calendar className="h-5 w-5" strokeWidth={2} />
-            PDF ticket on file
-          </div>
+        {row.hasProof ? (
+          <TicketProofPreview ticketId={row.id} expectPdf={row.proofIsPdf} />
         ) : (
           <p className="py-8 text-center text-[13px] text-muted">No preview</p>
         )}

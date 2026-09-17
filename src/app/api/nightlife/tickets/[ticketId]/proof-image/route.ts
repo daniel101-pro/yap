@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth-session';
 import { prisma } from '@/lib/prisma';
-import { isAllowedTicketProofUrl } from '@/lib/ticket-proof';
+import { fetchTicketProofAttachment } from '@/lib/ticket-proof-fetch';
 
 type RouteContext = { params: Promise<{ ticketId: string }> };
 
@@ -17,6 +17,7 @@ export async function GET(_request: Request, context: RouteContext) {
     where: { id: ticketId },
     select: {
       sellerId: true,
+      title: true,
       ticketProofUrl: true,
       ticketProofMime: true,
       ticketProofData: true,
@@ -27,32 +28,21 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const mime = ticket.ticketProofMime ?? 'image/jpeg';
+  const attachment = await fetchTicketProofAttachment(
+    ticket.ticketProofUrl ?? '',
+    ticket.ticketProofMime ?? 'image/jpeg',
+    ticket.title,
+    ticket.ticketProofData,
+  );
 
-  if (ticket.ticketProofData && ticket.ticketProofData.length > 0) {
-    const body = Buffer.from(ticket.ticketProofData);
-    return new NextResponse(body, {
-      headers: {
-        'Content-Type': mime,
-        'Cache-Control': 'private, no-store',
-      },
-    });
+  if (!attachment) {
+    return NextResponse.json({ error: 'No preview' }, { status: 404 });
   }
 
-  if (ticket.ticketProofUrl && isAllowedTicketProofUrl(ticket.ticketProofUrl)) {
-    const res = await fetch(ticket.ticketProofUrl);
-    if (!res.ok) {
-      return NextResponse.json({ error: 'Could not load image' }, { status: 502 });
-    }
-    const buf = Buffer.from(await res.arrayBuffer());
-    const contentType = res.headers.get('content-type')?.split(';')[0]?.trim() || mime;
-    return new NextResponse(buf, {
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'private, no-store',
-      },
-    });
-  }
-
-  return NextResponse.json({ error: 'No preview' }, { status: 404 });
+  return new NextResponse(new Uint8Array(attachment.buffer), {
+    headers: {
+      'Content-Type': attachment.contentType,
+      'Cache-Control': 'private, no-store',
+    },
+  });
 }

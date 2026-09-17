@@ -7,8 +7,9 @@
     "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint src",
-    "stripe:listen": "stripe listen --forward-to localhost:3000/api/stripe/webhook --events checkout.session.completed,checkout.session.expired",
+    "stripe:listen": "node scripts/stripe-listen.mjs",
     "stripe:webhook:prod": "node scripts/stripe-webhook-production.mjs",
+    "stripe:switch": "node scripts/stripe-switch-account.mjs --clear-connect",
     "postinstall": "prisma generate"
   },
   "dependencies": {

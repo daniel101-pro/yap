@@ -28,11 +28,18 @@ if (!key) {
 
 const WEBHOOK_URL = process.env.STRIPE_WEBHOOK_URL ?? 'https://yap.college/api/stripe/webhook';
 const EVENTS = ['checkout.session.completed', 'checkout.session.expired'];
+const recreate = process.argv.includes('--recreate');
 
 const stripe = new Stripe(key);
 
 const existing = await stripe.webhookEndpoints.list({ limit: 100 });
 let endpoint = existing.data.find((e) => e.url === WEBHOOK_URL);
+
+if (endpoint && recreate) {
+  await stripe.webhookEndpoints.del(endpoint.id);
+  endpoint = undefined;
+  console.log('Removed existing webhook for recreate.');
+}
 
 if (!endpoint) {
   endpoint = await stripe.webhookEndpoints.create({
@@ -46,6 +53,5 @@ if (!endpoint) {
   console.log('\n(Local dev still needs: npm run stripe:listen → different whsec in .env)\n');
 } else {
   console.log('\nWebhook already exists:', WEBHOOK_URL);
-  console.log('If you lost the signing secret, delete this endpoint in Stripe Dashboard');
-  console.log('and run this script again to create a new one.\n');
+  console.log('Run with --recreate to delete and create a new signing secret.\n');
 }
