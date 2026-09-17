@@ -7,6 +7,7 @@ import { sellerFullySetUpForSelling } from '@/lib/stripe-seller-ready';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { clampString, LIMITS, parseBoundedNumber } from '@/lib/validation';
 import { decodeTicketProofBase64, isAllowedTicketProofUrl } from '@/lib/ticket-proof';
+import { fetchTicketProofAttachment } from '@/lib/ticket-proof-fetch';
 import {
   activeNightlifeTicketsForMnoEventWhere,
   publicActiveNightlifeTicketsWhere,
@@ -78,7 +79,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid ticket file upload' }, { status: 400 });
     }
     ticketProofData = prismaBytesFromBuffer(decoded);
-  } else if (!ticketProofUrl || !isAllowedTicketProofUrl(ticketProofUrl)) {
+  } else if (ticketProofUrl && isAllowedTicketProofUrl(ticketProofUrl)) {
+    const pulled = await fetchTicketProofAttachment(
+      ticketProofUrl,
+      ticketProofMime ?? 'image/jpeg',
+      title,
+    );
+    if (pulled) ticketProofData = prismaBytesFromBuffer(pulled.buffer);
+  } else {
+    return NextResponse.json({ error: 'Upload your ticket (screenshot or PDF) before listing' }, { status: 400 });
+  }
+
+  if (!ticketProofData && !ticketProofUrl) {
     return NextResponse.json({ error: 'Upload your ticket (screenshot or PDF) before listing' }, { status: 400 });
   }
 
@@ -136,7 +148,7 @@ export async function POST(request: NextRequest) {
       status: 'active',
       mnoEventId,
       mnoTicketId,
-      ticketProofUrl: ticketProofData ? null : ticketProofUrl,
+      ticketProofUrl: ticketProofUrl || null,
       ticketProofMime,
       ticketProofData,
     },

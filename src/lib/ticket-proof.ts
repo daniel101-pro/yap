@@ -38,7 +38,14 @@ export function ticketProofExtension(mime: string): string {
 export function isAllowedTicketProofUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.pathname.includes('/nightlife-tickets/');
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    const blobHost =
+      host === 'blob.vercel-storage.com' ||
+      host.endsWith('.blob.vercel-storage.com');
+    if (!blobHost) return false;
+    const path = decodeURIComponent(parsed.pathname);
+    return path.includes('/nightlife-tickets/') || path.includes('nightlife-tickets/');
   } catch {
     return false;
   }

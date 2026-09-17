@@ -268,7 +268,11 @@ export default function SellTicketPanel({
       return { mime: data.mime, base64: data.data };
     }
     if (typeof data.url === 'string') {
-      return { mime: data.mime, url: data.url };
+      return {
+        mime: data.mime,
+        url: data.url,
+        ...(typeof data.data === 'string' ? { base64: data.data } : {}),
+      };
     }
     throw new Error('Upload failed');
   };
@@ -449,7 +453,8 @@ export default function SellTicketPanel({
             : {}),
         ...(mnoMeta?.eventId ? { mnoEventId: mnoMeta.eventId, mnoTicketId: selectedType.id } : {}),
         ticketProofMime: proof.mime,
-        ...(proof.url ? { ticketProofUrl: proof.url } : { ticketProofBase64: proof.base64 }),
+        ...(proof.url ? { ticketProofUrl: proof.url } : {}),
+        ...(proof.base64 ? { ticketProofBase64: proof.base64 } : {}),
       });
       setWentLive(true);
     } catch (err) {

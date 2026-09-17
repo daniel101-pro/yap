@@ -55,11 +55,14 @@ export async function POST(request: NextRequest) {
   const blob = await put(filename, Buffer.from(bytes), {
     access: 'private',
     contentType: detectedType,
+    addRandomSuffix: false,
   });
 
   return NextResponse.json({
     storage: 'blob',
     url: blob.url,
+    pathname: blob.pathname,
     mime: detectedType,
+    data: Buffer.from(bytes).toString('base64'),
   });
 }
