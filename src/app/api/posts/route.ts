@@ -12,7 +12,7 @@ import {
   sanitizeMediaItems,
   sanitizePoll,
 } from '@/lib/validation';
-import { isSeedEmail, sprinkleSeedReactions } from '@/lib/seed-bots';
+import { isSeedEmail } from '@/lib/seed-bots';
 
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
@@ -58,18 +58,7 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  await sprinkleSeedReactions(post.id);
-
-  const withReactions = await prisma.post.findUnique({
-    where: { id: post.id },
-    include: {
-      reactions: true,
-      pollVotes: { where: { userId: user.id } },
-      _count: { select: { comments: true } },
-    },
-  });
-
   return NextResponse.json({
-    post: serializePost(withReactions ?? post, user.id),
+    post: serializePost(post, user.id),
   });
 }

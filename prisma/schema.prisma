@@ -29,7 +29,8 @@ model User {
   pollVotes         PollVote[]
   listings          Listing[]
   listingSaves      ListingSave[]
-  nightlifeTickets  NightlifeTicket[]
+  nightlifeTickets  NightlifeTicket[] @relation("TicketSeller")
+  nightlifePurchases NightlifeTicket[] @relation("TicketBuyer")
   notifications     Notification[]
   buyerConversations  Conversation[] @relation("BuyerConversations")
   sellerConversations Conversation[] @relation("SellerConversations")
@@ -216,6 +217,7 @@ model ListingSave {
 model NightlifeTicket {
   id                    String   @id @default(cuid())
   sellerId              String
+  buyerId               String?
   title                 String
   venue                 String
   price                 Float
@@ -234,10 +236,12 @@ model NightlifeTicket {
   stripePaymentIntentId String?
   saleAmountPence       Int?
   createdAt             DateTime @default(now())
-  seller                User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  seller                User     @relation("TicketSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  buyer                 User?    @relation("TicketBuyer", fields: [buyerId], references: [id], onDelete: SetNull)
 
   @@index([eventDate])
   @@index([sellerId, status])
+  @@index([buyerId])
 }
 
 model NightlifePin {

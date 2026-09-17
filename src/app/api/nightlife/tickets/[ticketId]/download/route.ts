@@ -40,12 +40,15 @@ export async function GET(_request: Request, context: RouteContext) {
   );
 
   if (!attachment) {
-    return NextResponse.json({ error: 'No preview' }, { status: 404 });
+    return NextResponse.json({ error: 'Ticket file isn’t available yet.' }, { status: 404 });
   }
+
+  const safeName = attachment.filename.replace(/"/g, '');
 
   return new NextResponse(new Uint8Array(attachment.buffer), {
     headers: {
       'Content-Type': attachment.contentType,
+      'Content-Disposition': `attachment; filename="${safeName}"`,
       'Cache-Control': 'private, no-store',
     },
   });

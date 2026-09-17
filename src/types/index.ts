@@ -119,6 +119,17 @@ export interface Conversation {
   unread: number;
 }
 
+export interface NightlifePurchase {
+  id: string;
+  title: string;
+  venue: string;
+  eventDate: Date;
+  eventEndDate?: Date;
+  soldAt: Date;
+  hasProof: boolean;
+  proofIsPdf: boolean;
+}
+
 export interface NightlifeTicket {
   id: string;
   title: string;
@@ -130,6 +141,9 @@ export interface NightlifeTicket {
   quantity?: number;
   status?: 'active' | 'sold' | 'reserved';
   isSold: boolean;
+  isOwn?: boolean;
+  /** False when seller payouts are not ready — buyers cannot checkout. */
+  purchaseReady?: boolean;
   mnoEventId?: string;
   mnoTicketId?: string;
 }

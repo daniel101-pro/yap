@@ -1,15 +1,95 @@
 import { prisma } from '@/lib/prisma';
 import type { Reaction } from '@/types';
 
-/** Demo accounts — reactions only, never shown in feed as authors. */
-const SEED_BOTS = [
-  { email: 'seed-system@exeter.ac.uk', handle: 'CampusGhost' },
-  { email: 'seed-bot-1@exeter.ac.uk', handle: 'ForumLegend' },
-  { email: 'seed-bot-2@exeter.ac.uk', handle: 'StreathamSoul' },
-  { email: 'seed-bot-3@exeter.ac.uk', handle: 'LibraryRat' },
-  { email: 'seed-bot-4@exeter.ac.uk', handle: 'RamenEnjoyer' },
-  { email: 'seed-bot-5@exeter.ac.uk', handle: 'FreshersFriend' },
+export const REACTION_BOT_COUNT = 200;
+
+const PREFIXES = [
+  'streatham',
+  'forum',
+  'glide',
+  'library',
+  'peninsula',
+  'societies',
+  'freshers',
+  'lateness',
+  'summit',
+  'holloway',
+  'ramen',
+  'pint',
+  'sports',
+  'guild',
+  'campus',
+  'seminar',
+  'diss',
+  'nights',
+  'moulse',
+  'exeter',
+  'sidmouth',
+  'jager',
+  'lecture',
+  'tab',
+  'union',
+  'mystery',
+  'anonymous',
+  'quad',
+  'halls',
+  'laundry',
 ] as const;
+
+const SUFFIXES = [
+  'rat',
+  'legend',
+  'ghost',
+  'enjoyer',
+  'friend',
+  'owl',
+  'menace',
+  'witness',
+  'survivor',
+  'enthusiast',
+  'goon',
+  'oracle',
+  'menace',
+  'duck',
+  'menace',
+  'sleeper',
+  'poster',
+  'lurker',
+  'fan',
+  'nomad',
+  'gremlin',
+  'scholar',
+  'menace',
+  'enjoyer',
+  'hero',
+] as const;
+
+function buildBotProfiles(count: number): { email: string; handle: string }[] {
+  const used = new Set<string>();
+  const profiles: { email: string; handle: string }[] = [];
+
+  profiles.push({ email: 'seed-system@exeter.ac.uk', handle: 'CampusGhost' });
+  used.add('CampusGhost');
+
+  let i = 1;
+  while (profiles.length < count) {
+    const prefix = PREFIXES[Math.floor(Math.random() * PREFIXES.length)]!;
+    const suffix = SUFFIXES[Math.floor(Math.random() * SUFFIXES.length)]!;
+    const num = Math.floor(Math.random() * 900) + 10;
+    const handle = `${prefix}${suffix}${num}`.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20);
+    if (used.has(handle)) continue;
+    used.add(handle);
+    profiles.push({
+      email: `seed-bot-${i}@exeter.ac.uk`,
+      handle,
+    });
+    i += 1;
+  }
+
+  return profiles;
+}
+
+const BOT_PROFILES = buildBotProfiles(REACTION_BOT_COUNT);
 
 const REACTION_POOL: Reaction[] = ['fire', 'fire', 'real', 'dead', 'real'];
 
@@ -21,49 +101,44 @@ export const seedAuthorFilter = {
   email: { not: { startsWith: 'seed-' } },
 } as const;
 
-/** Ensure seed bot users exist (no posts — reactions only). */
-export async function ensureSeedBots(): Promise<string[]> {
-  const ids: string[] = [];
+let cachedBotIds: string[] | null = null;
 
-  for (const bot of SEED_BOTS) {
-    const user = await prisma.user.upsert({
-      where: { email: bot.email },
-      create: {
-        email: bot.email,
-        emailVerified: new Date(),
-        anonymousHandle: bot.handle,
-        karma: 0,
-      },
-      update: {},
-      select: { id: true },
-    });
-    ids.push(user.id);
+/** Reaction-only accounts — never authors in feed. */
+export async function ensureSeedBots(): Promise<string[]> {
+  if (cachedBotIds && cachedBotIds.length >= REACTION_BOT_COUNT) {
+    return cachedBotIds;
   }
 
+  const ids: string[] = [];
+  const batchSize = 25;
+
+  for (let start = 0; start < BOT_PROFILES.length; start += batchSize) {
+    const slice = BOT_PROFILES.slice(start, start + batchSize);
+    await Promise.all(
+      slice.map(async (bot) => {
+        const user = await prisma.user.upsert({
+          where: { email: bot.email },
+          create: {
+            email: bot.email,
+            emailVerified: new Date(),
+            anonymousHandle: bot.handle,
+            karma: 0,
+          },
+          update: {},
+          select: { id: true },
+        });
+        ids.push(user.id);
+      }),
+    );
+  }
+
+  cachedBotIds = ids;
   return ids;
 }
 
-/** Add a few anonymous reactions from seed bots on real student posts. */
-export async function sprinkleSeedReactions(postId: string): Promise<void> {
-  const post = await prisma.post.findUnique({
-    where: { id: postId },
-    include: { author: { select: { email: true } } },
-  });
-
-  if (!post || post.hiddenAt || isSeedEmail(post.author.email)) return;
-
-  const botIds = await ensureSeedBots();
-  const reactionCount = 2 + Math.floor(Math.random() * 4);
-  const picked = [...botIds].sort(() => Math.random() - 0.5).slice(0, reactionCount);
-
-  await Promise.all(
-    picked.map((userId) => {
-      const reaction = REACTION_POOL[Math.floor(Math.random() * REACTION_POOL.length)];
-      return prisma.postReaction.upsert({
-        where: { postId_userId: { postId, userId } },
-        create: { postId, userId, reaction },
-        update: {},
-      });
-    }),
-  );
+/** @deprecated Use runReactionBotTick — no instant reaction dumps on new posts. */
+export async function sprinkleSeedReactions(_postId: string): Promise<void> {
+  /* drip handled by reaction-bot-engine */
 }
+
+export { REACTION_POOL };

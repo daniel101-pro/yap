@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth-session';
 import { prisma } from '@/lib/prisma';
 import { getStripeServerClient, isStripeConfigured, isStripeWebhookConfigured } from '@/lib/stripe';
+import { rememberStripeSellerPurchaseReady } from '@/lib/stripe-seller-ready';
 
 export async function GET() {
   const configured = isStripeConfigured();
@@ -27,6 +28,11 @@ export async function GET() {
           const account = await stripe.accounts.retrieve(dbUser.stripeAccountId);
           onboardingComplete = Boolean(account.details_submitted);
           canReceivePayments = Boolean(account.charges_enabled);
+          rememberStripeSellerPurchaseReady(
+            dbUser.stripeAccountId,
+            canReceivePayments,
+            onboardingComplete,
+          );
         } catch {
           onboardingComplete = false;
           canReceivePayments = false;

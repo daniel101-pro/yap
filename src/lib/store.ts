@@ -10,6 +10,7 @@ import {
   Conversation,
   Message,
   NightlifeTicket,
+  NightlifePurchase,
   NightlifePin,
 } from '@/types';
 import { api } from '@/lib/api';
@@ -27,6 +28,7 @@ interface BootstrapData {
   posts: Post[];
   listings: Listing[];
   nightlifeTickets: NightlifeTicket[];
+  nightlifePurchases: NightlifePurchase[];
   nightlifePins: NightlifePin[];
   notifications: Notification[];
   savedListingIds: string[];
@@ -140,6 +142,7 @@ interface AppState {
   recordListingView: (listingId: string) => Promise<void>;
 
   nightlifeTickets: NightlifeTicket[];
+  nightlifePurchases: NightlifePurchase[];
   addNightlifeTicket: (
     ticket: Omit<NightlifeTicket, 'id' | 'sellerName' | 'isSold'> & {
       ticketProofMime: string;
@@ -255,6 +258,12 @@ export const useStore = create<AppState>((set, get) => ({
           eventDate: new Date(t.eventDate),
           ...(t.eventEndDate ? { eventEndDate: new Date(t.eventEndDate) } : {}),
         })),
+        nightlifePurchases: (data.nightlifePurchases ?? []).map((t) => ({
+          ...t,
+          eventDate: new Date(t.eventDate),
+          ...(t.eventEndDate ? { eventEndDate: new Date(t.eventEndDate) } : {}),
+          soldAt: new Date(t.soldAt),
+        })),
         nightlifePins: data.nightlifePins,
         notifications: data.notifications.map((n) => ({ ...n, timestamp: new Date(n.timestamp) })),
         savedListings: data.savedListingIds,
@@ -291,6 +300,12 @@ export const useStore = create<AppState>((set, get) => ({
             ...t,
             eventDate: new Date(t.eventDate),
             ...(t.eventEndDate ? { eventEndDate: new Date(t.eventEndDate) } : {}),
+          })),
+          nightlifePurchases: (data.nightlifePurchases ?? []).map((t) => ({
+            ...t,
+            eventDate: new Date(t.eventDate),
+            ...(t.eventEndDate ? { eventEndDate: new Date(t.eventEndDate) } : {}),
+            soldAt: new Date(t.soldAt),
           })),
           nightlifePins: data.nightlifePins,
           notifications: data.notifications.map((n) => ({
@@ -687,6 +702,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   nightlifeTickets: [],
+  nightlifePurchases: [],
   addNightlifeTicket: async (ticket) => {
     const { ticket: created } = await api<{ ticket: NightlifeTicket }>('/api/nightlife/tickets', {
       method: 'POST',
@@ -870,6 +886,7 @@ export const useStore = create<AppState>((set, get) => ({
       hydrationError: null,
       userProfile: null,
       stripeSellerStatus: null,
+      nightlifePurchases: [],
     });
   },
   showCreateModal: false,

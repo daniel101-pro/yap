@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Calendar, ChevronRight, Flame, Loader2, MapPin, X } from 'lucide-react';
 import type { NightlifePin, NightlifeTicket } from '@/types';
 import type { MnoEventDetail, MnoEventSummary } from '@/lib/mynightout';
-import { formatMnoInstant, normalizeSlotName } from '@/lib/mynightout';
+import { formatMnoInstant } from '@/lib/mynightout';
+import { buildYapResaleBySlot, isPurchasableByBuyer } from '@/lib/nightlife-resale-match';
 import {
   getCachedMnoEventDetail,
   getCachedMnoVenueEvents,
@@ -21,9 +22,6 @@ function parseTicketFromApi(t: NightlifeTicket): NightlifeTicket {
   };
 }
 
-function isBuyableResale(t: NightlifeTicket): boolean {
-  return !t.isSold && t.status !== 'sold' && t.status !== 'reserved';
-}
 
 type VenueSheetProps = {
   pin: NightlifePin | null;
@@ -148,6 +146,7 @@ export function NightlifeMnoEventSheet({
   const [error, setError] = useState('');
   const [trendingSlotId, setTrendingSlotId] = useState<string | null>(null);
   const [liveResale, setLiveResale] = useState<NightlifeTicket[]>([]);
+  const [resaleLoading, setResaleLoading] = useState(false);
   const loadedIdRef = useRef<string | null>(null);
 
   const resaleTickets = useMemo(() => {
@@ -202,14 +201,21 @@ export function NightlifeMnoEventSheet({
   useEffect(() => {
     if (!open || !eventId) {
       setLiveResale([]);
+      setResaleLoading(false);
       return;
     }
     const controller = new AbortController();
+    setResaleLoading(true);
     fetch(`/api/nightlife/tickets?mnoEventId=${encodeURIComponent(eventId)}`, {
       signal: controller.signal,
       cache: 'no-store',
+      credentials: 'same-origin',
     })
-      .then((r) => r.json())
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(typeof d.error === 'string' ? d.error : 'fetch failed');
+        return d;
+      })
       .then((d) => {
         const list = Array.isArray(d.tickets) ? (d.tickets as NightlifeTicket[]) : [];
         setLiveResale(list.map(parseTicketFromApi));
@@ -217,7 +223,8 @@ export function NightlifeMnoEventSheet({
       .catch((err) => {
         if ((err as Error).name === 'AbortError') return;
         setLiveResale([]);
-      });
+      })
+      .finally(() => setResaleLoading(false));
     return () => controller.abort();
   }, [open, eventId]);
 
@@ -243,33 +250,8 @@ export function NightlifeMnoEventSheet({
   }, [open, eventId, resaleTickets]);
 
   const yapBySlot = useMemo(() => {
-    const map = new Map<string, NightlifeTicket>();
-    if (!event) return map;
-    const venueKey = event.venue?.name?.toLowerCase() ?? '';
-    for (const slot of event.tickets) {
-      const slotNorm = normalizeSlotName(slot.name);
-      const exact = resaleTickets.find(
-        (t) =>
-          isBuyableResale(t) &&
-          t.mnoEventId === event.id &&
-          t.mnoTicketId === slot.id,
-      );
-      if (exact) {
-        map.set(slot.id, exact);
-        continue;
-      }
-      const fuzzy = resaleTickets.find((t) => {
-        if (!isBuyableResale(t)) return false;
-        const v = t.venue.toLowerCase();
-        if (venueKey && !v.includes(venueKey.split(' ')[0]!) && !venueKey.includes(v.split(' ')[0]!)) {
-          return false;
-        }
-        const titleNorm = normalizeSlotName(t.title);
-        return titleNorm.includes(slotNorm) || slotNorm.includes(titleNorm.slice(-40));
-      });
-      if (fuzzy) map.set(slot.id, fuzzy);
-    }
-    return map;
+    if (!event) return new Map<string, NightlifeTicket>();
+    return buildYapResaleBySlot(event, resaleTickets);
   }, [event, resaleTickets]);
 
   if (!open || !eventId) return null;
@@ -338,7 +320,8 @@ export function NightlifeMnoEventSheet({
             <ul className="space-y-2">
               {event.tickets.map((slot) => {
                 const yap = yapBySlot.get(slot.id);
-                const soldOut = !yap;
+                const canBuy = yap ? isPurchasableByBuyer(yap) : false;
+                const soldOut = !resaleLoading && !canBuy && !yap?.isOwn;
                 const isTrending = trendingSlotId === slot.id;
                 return (
                   <li
@@ -366,11 +349,17 @@ export function NightlifeMnoEventSheet({
                         </p>
                       </div>
                     </div>
-                    {soldOut ? (
+                    {resaleLoading && !yap ? (
+                      <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted" aria-label="Loading resale" />
+                    ) : soldOut ? (
                       <span className="shrink-0 text-[12px] font-bold uppercase tracking-wide text-red-500">
                         Sold out
                       </span>
-                    ) : (
+                    ) : yap!.isOwn ? (
+                      <span className="shrink-0 rounded-full bg-surface px-3 py-2 text-[11px] font-bold text-muted ring-1 ring-divider">
+                        Your listing · £{yap!.price}
+                      </span>
+                    ) : canBuy ? (
                       <button
                         type="button"
                         disabled={checkoutLoadingId === yap!.id}
@@ -386,11 +375,11 @@ export function NightlifeMnoEventSheet({
                             {isTrending && (
                               <Flame className="h-3.5 w-3.5 fill-white" strokeWidth={2} />
                             )}
-                            £{yap!.price}
+                            Buy · £{yap!.price}
                           </span>
                         )}
                       </button>
-                    )}
+                    ) : null}
                   </li>
                 );
               })}

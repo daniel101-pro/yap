@@ -50,13 +50,16 @@ export async function GET() {
     });
 
     let connectReady = false;
+    let canReceivePayments = false;
     if (isStripeConfigured() && dbUser?.stripeAccountId) {
       try {
         const stripe = getStripeServerClient();
         const account = await stripe.accounts.retrieve(dbUser.stripeAccountId);
-        connectReady = Boolean(account.charges_enabled && account.details_submitted);
+        canReceivePayments = Boolean(account.charges_enabled);
+        connectReady = Boolean(canReceivePayments && account.details_submitted);
       } catch {
         connectReady = false;
+        canReceivePayments = false;
       }
     }
 
@@ -99,6 +102,7 @@ export async function GET() {
       const hasProof = Boolean(
         t.ticketProofUrl || (t.ticketProofData && t.ticketProofData.length > 0),
       );
+      const visibleToBuyers = saleState === 'on_sale' && connectReady;
       return {
         id: t.id,
         title: t.title,
@@ -116,6 +120,7 @@ export async function GET() {
         hasProof,
         proofIsPdf: (t.ticketProofMime ?? '').includes('pdf'),
         canEdit: t.status === 'active',
+        visibleToBuyers,
       };
     });
 
@@ -156,7 +161,8 @@ export async function GET() {
         ...g,
         eventImageUrl: g.mnoEventId ? eventImages.get(g.mnoEventId) ?? null : null,
         listingCount: g.listings.length,
-        onSaleCount: g.listings.filter((l) => l.status === 'on_sale').length,
+        onSaleCount: g.listings.filter((l) => l.visibleToBuyers).length,
+        hiddenCount: g.listings.filter((l) => l.status === 'on_sale' && !l.visibleToBuyers).length,
       }))
       .sort((a, b) => {
         const venueCmp = compareExeterVenueSections(a.venue, b.venue);
@@ -165,6 +171,7 @@ export async function GET() {
       });
 
     const activeListings = sellerListings.filter((t) => t.status === 'active').length;
+    const hiddenFromBuyers = listings.filter((l) => l.status === 'on_sale' && !l.visibleToBuyers).length;
 
     const soldForPayout = await prisma.nightlifeTicket.findMany({
         where: { sellerId: user.id, status: 'sold' },
@@ -227,7 +234,9 @@ export async function GET() {
 
     return NextResponse.json({
       connectReady,
+      canReceivePayments,
       hasConnectAccount: Boolean(dbUser?.stripeAccountId),
+      hiddenFromBuyers,
       holdHours: 24,
       repCode,
       repUses,

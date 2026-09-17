@@ -5,8 +5,9 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import {
   serializePost,
   serializeListing,
-  serializeTicket,
   serializePin,
+  serializeNightlifeTicketsForViewer,
+  serializeNightlifePurchase,
   serializeNotification,
 } from '@/lib/serializers';
 import { serializeConversation } from '@/lib/serializers-messages';
@@ -15,6 +16,7 @@ import { getBlockedAuthorIds } from '@/lib/moderation';
 import { HOUSE_PARTY_TTL_MS, MAX_PUBLIC_PINS } from '@/lib/pin-privacy';
 import { seedAuthorFilter } from '@/lib/seed-bots';
 import { publicActiveNightlifeTicketsWhere } from '@/lib/nightlife-tickets-query';
+import { runReactionBotTick } from '@/lib/reaction-bot-engine';
 
 const sellerInclude = {
   seller: {
@@ -59,8 +61,17 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  const [dbUser, posts, listings, nightlifeTickets, nightlifePins, notifications, saves, conversations] =
-    await Promise.all([
+  const [
+    dbUser,
+    posts,
+    listings,
+    nightlifeTickets,
+    nightlifePurchases,
+    nightlifePins,
+    notifications,
+    saves,
+    conversations,
+  ] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, anonymousHandle: true, karma: true },
@@ -94,7 +105,25 @@ export async function GET(request: NextRequest) {
         where: publicActiveNightlifeTicketsWhere(userId, now),
         orderBy: { eventDate: 'asc' },
         take: 200,
-        include: { seller: { select: { id: true, anonymousHandle: true } } },
+        include: {
+          seller: { select: { id: true, anonymousHandle: true, stripeAccountId: true } },
+        },
+      }),
+      prisma.nightlifeTicket.findMany({
+        where: { buyerId: userId, status: 'sold' },
+        orderBy: { soldAt: 'desc' },
+        take: 40,
+        select: {
+          id: true,
+          title: true,
+          venue: true,
+          eventDate: true,
+          eventEndDate: true,
+          soldAt: true,
+          ticketProofUrl: true,
+          ticketProofMime: true,
+          ticketProofData: true,
+        },
       }),
       prisma.nightlifePin.findMany({
         where: {
@@ -137,6 +166,13 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+  const serializedTickets = await serializeNightlifeTicketsForViewer(nightlifeTickets, userId);
+
+  const botTick = checkRateLimit('reaction-bot-tick-global', 1, 7 * 60 * 1000);
+  if (botTick.ok) {
+    void runReactionBotTick().catch((err) => console.error('[bootstrap] reaction bots', err));
+  }
+
   return NextResponse.json(
     {
       user: dbUser
@@ -148,7 +184,8 @@ export async function GET(request: NextRequest) {
         : { id: userId, anonymousHandle: 'Anonymous', karma: 0 },
       posts: posts.map((p) => serializePost(p, userId)),
       listings: listings.map((l) => serializeListing(l, userId)),
-      nightlifeTickets: nightlifeTickets.map((t) => serializeTicket(t)),
+      nightlifeTickets: serializedTickets,
+      nightlifePurchases: nightlifePurchases.map((t) => serializeNightlifePurchase(t)),
       nightlifePins: nightlifePins.map((p) => serializePin(p, userId)),
       notifications: notifications.map((n) => serializeNotification(n)),
       savedListingIds: saves.map((s) => s.listingId),

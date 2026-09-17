@@ -2,6 +2,7 @@ import type {
   Post,
   Listing,
   NightlifeTicket,
+  NightlifePurchase,
   NightlifePin,
   Notification,
   Comment,
@@ -23,6 +24,7 @@ import type {
 import { parseJson } from '@/lib/json';
 import { isAllowedMediaUrl } from '@/lib/validation';
 import { fuzzLatLng } from '@/lib/pin-privacy';
+import { resolveStripePurchaseReadyByAccount } from '@/lib/stripe-seller-ready';
 
 const REACTIONS: Reaction[] = ['fire', 'cap', 'dead', 'real', 'sus'];
 
@@ -119,9 +121,14 @@ export function serializeListing(
   };
 }
 
+type TicketSellerRow = { anonymousHandle: string | null; stripeAccountId?: string | null };
+
 export function serializeTicket(
-  ticket: DbTicket & { seller: { anonymousHandle: string | null } },
+  ticket: DbTicket & { seller: TicketSellerRow },
+  viewerId?: string,
+  purchaseReady?: boolean,
 ): NightlifeTicket {
+  const isOwn = Boolean(viewerId && ticket.sellerId === viewerId);
   return {
     id: ticket.id,
     title: ticket.title,
@@ -129,13 +136,50 @@ export function serializeTicket(
     price: ticket.price,
     eventDate: ticket.eventDate,
     ...(ticket.eventEndDate ? { eventEndDate: ticket.eventEndDate } : {}),
-    sellerName: ticket.seller.anonymousHandle ?? 'You',
+    sellerName: ticket.seller.anonymousHandle ?? (isOwn ? 'You' : 'Seller'),
     quantity: ticket.quantity,
     status: ticket.status as NightlifeTicket['status'],
     isSold: ticket.status === 'sold',
-    ...(ticket.mnoEventId ? { mnoEventId: ticket.mnoEventId } : {}),
-    ...(ticket.mnoTicketId ? { mnoTicketId: ticket.mnoTicketId } : {}),
+    isOwn,
+    ...(purchaseReady !== undefined ? { purchaseReady } : {}),
+    ...(ticket.mnoEventId ? { mnoEventId: String(ticket.mnoEventId) } : {}),
+    ...(ticket.mnoTicketId ? { mnoTicketId: String(ticket.mnoTicketId) } : {}),
   };
+}
+
+export function serializeNightlifePurchase(
+  ticket: Pick<
+    DbTicket,
+    'id' | 'title' | 'venue' | 'eventDate' | 'eventEndDate' | 'soldAt' | 'ticketProofUrl' | 'ticketProofMime' | 'ticketProofData'
+  >,
+): NightlifePurchase {
+  const hasProof = Boolean(
+    ticket.ticketProofUrl || (ticket.ticketProofData && ticket.ticketProofData.length > 0),
+  );
+  return {
+    id: ticket.id,
+    title: ticket.title,
+    venue: ticket.venue,
+    eventDate: ticket.eventDate,
+    ...(ticket.eventEndDate ? { eventEndDate: ticket.eventEndDate } : {}),
+    soldAt: ticket.soldAt ?? ticket.eventDate,
+    hasProof,
+    proofIsPdf: (ticket.ticketProofMime ?? '').includes('pdf'),
+  };
+}
+
+export async function serializeNightlifeTicketsForViewer(
+  tickets: Array<DbTicket & { seller: TicketSellerRow }>,
+  viewerId: string,
+): Promise<NightlifeTicket[]> {
+  const readyByAccount = await resolveStripePurchaseReadyByAccount(
+    tickets.map((t) => t.seller.stripeAccountId),
+  );
+  return tickets.map((t) => {
+    const accountId = t.seller.stripeAccountId;
+    const purchaseReady = accountId ? (readyByAccount.get(accountId) ?? false) : false;
+    return serializeTicket(t, viewerId, purchaseReady);
+  });
 }
 
 export function serializePin(pin: DbPin, viewerId?: string): NightlifePin {

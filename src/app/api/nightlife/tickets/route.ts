@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
 import { ensureAnonymousHandle } from '@/lib/anonymous';
-import { serializeTicket } from '@/lib/serializers';
+import { serializeNightlifeTicketsForViewer, serializeTicket } from '@/lib/serializers';
+import { sellerFullySetUpForSelling } from '@/lib/stripe-seller-ready';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { clampString, LIMITS, parseBoundedNumber } from '@/lib/validation';
 import { decodeTicketProofBase64, isAllowedTicketProofUrl } from '@/lib/ticket-proof';
-import { publicActiveNightlifeTicketsWhere } from '@/lib/nightlife-tickets-query';
+import {
+  activeNightlifeTicketsForMnoEventWhere,
+  publicActiveNightlifeTicketsWhere,
+} from '@/lib/nightlife-tickets-query';
 
 function prismaBytesFromBuffer(buf: Buffer): Uint8Array<ArrayBuffer> {
   const copy = new Uint8Array(buf.length);
@@ -24,18 +28,19 @@ export async function GET(request: NextRequest) {
   const now = new Date();
 
   const tickets = await prisma.nightlifeTicket.findMany({
-    where: {
-      ...publicActiveNightlifeTicketsWhere(user.id, now),
-      ...(mnoEventId ? { mnoEventId: mnoEventId.slice(0, 32) } : {}),
-    },
+    where: mnoEventId
+      ? activeNightlifeTicketsForMnoEventWhere(mnoEventId)
+      : publicActiveNightlifeTicketsWhere(user.id, now),
     orderBy: [{ price: 'asc' }, { createdAt: 'desc' }],
     take: mnoEventId ? 80 : 200,
-    include: { seller: { select: { anonymousHandle: true } } },
+    include: {
+      seller: { select: { anonymousHandle: true, stripeAccountId: true } },
+    },
   });
 
-  return NextResponse.json({
-    tickets: tickets.map((t) => serializeTicket(t)),
-  });
+  const serialized = await serializeNightlifeTicketsForViewer(tickets, user.id);
+
+  return NextResponse.json({ tickets: serialized });
 }
 
 export async function POST(request: NextRequest) {
@@ -94,14 +99,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Event date is too far out' }, { status: 400 });
   }
 
+  const mnoEventIdRaw = body.mnoEventId;
+  const mnoTicketIdRaw = body.mnoTicketId;
   const mnoEventId =
-    typeof body.mnoEventId === 'string' && body.mnoEventId.trim() ? body.mnoEventId.trim().slice(0, 32) : null;
+    mnoEventIdRaw != null && String(mnoEventIdRaw).trim()
+      ? String(mnoEventIdRaw).trim().slice(0, 64)
+      : null;
   const mnoTicketId =
-    typeof body.mnoTicketId === 'string' && body.mnoTicketId.trim()
-      ? body.mnoTicketId.trim().slice(0, 32)
+    mnoTicketIdRaw != null && String(mnoTicketIdRaw).trim()
+      ? String(mnoTicketIdRaw).trim().slice(0, 64)
       : null;
 
   await ensureAnonymousHandle(user.id);
+
+  const sellerRow = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { stripeAccountId: true },
+  });
+  const canList = await sellerFullySetUpForSelling(sellerRow?.stripeAccountId);
+  if (!canList) {
+    return NextResponse.json(
+      { error: 'Finish payouts in your seller dashboard before you list.' },
+      { status: 403 },
+    );
+  }
 
   const ticket = await prisma.nightlifeTicket.create({
     data: {
@@ -119,8 +140,12 @@ export async function POST(request: NextRequest) {
       ticketProofMime,
       ticketProofData,
     },
-    include: { seller: { select: { anonymousHandle: true } } },
+    include: {
+      seller: { select: { anonymousHandle: true, stripeAccountId: true } },
+    },
   });
 
-  return NextResponse.json({ ticket: serializeTicket(ticket) });
+  return NextResponse.json({
+    ticket: serializeTicket(ticket, user.id, true),
+  });
 }

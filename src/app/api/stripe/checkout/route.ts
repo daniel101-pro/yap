@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const sellerAccountId = ticket.seller.stripeAccountId;
     if (!sellerAccountId) {
       return NextResponse.json(
-        { error: 'Seller has not set up payouts yet. Try another listing.' },
+        { error: 'This ticket is not available to buy right now. Try another slot.' },
         { status: 400 },
       );
     }
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const sellerAccount = await stripe.accounts.retrieve(sellerAccountId);
     if (!sellerAccount.charges_enabled) {
       return NextResponse.json(
-        { error: 'Seller is still finishing payout setup. Try again later.' },
+        { error: 'This ticket is not available to buy right now. Try another slot.' },
         { status: 400 },
       );
     }
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     try {
       const checkoutSession = await stripe.checkout.sessions.create({
         mode: 'payment',
-        success_url: `${origin}/?tab=nightlife&checkout=success`,
+        success_url: `${origin}/?tab=nightlife&checkout=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/?tab=nightlife&checkout=cancel&ticketId=${ticket.id}`,
         expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
         customer_email: user.email ?? undefined,

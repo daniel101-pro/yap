@@ -31,6 +31,7 @@ export default function Home() {
     showSellerDashboard,
     showNotifications,
     hydrateFromServer,
+    syncFromServer,
     isHydrated,
     isHydrating,
     hydrationError,
@@ -102,7 +103,44 @@ export default function Home() {
     const checkout = params.get('checkout');
     const onboarding = params.get('onboarding');
     if (checkout === 'success') {
-      setToast({ message: 'Ticket purchased! Stripe will email your receipt.', type: 'success' });
+      sessionStorage.setItem('yap-nightlife-open-wallet', '1');
+      const sessionId = params.get('session_id');
+      if (sessionId) {
+        fetch('/api/stripe/checkout/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        })
+          .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            void syncFromServer();
+            if (!res.ok) {
+              setToast({
+                message: typeof data.error === 'string' ? data.error : 'Payment received — refresh if your ticket is missing.',
+                type: 'error',
+              });
+              return;
+            }
+            if (data.emailSent && data.buyerEmail) {
+              setToast({
+                message: `Ticket sent to ${data.buyerEmail}. Check spam if you don’t see it.`,
+                type: 'success',
+              });
+            } else {
+              setToast({
+                message: 'You’re paid up — Night → My tickets to download.',
+                type: 'success',
+              });
+            }
+          })
+          .catch(() => {
+            setToast({ message: 'Paid — pull to refresh Nightlife for your ticket.', type: 'success' });
+            void syncFromServer();
+          });
+      } else {
+        setToast({ message: 'Payment complete — check Nightlife for your ticket.', type: 'success' });
+        void syncFromServer();
+      }
     } else if (checkout === 'cancel') {
       const ticketId = params.get('ticketId');
       if (ticketId) {
@@ -123,11 +161,12 @@ export default function Home() {
     if (checkout || onboarding) {
       const clean = new URL(window.location.href);
       clean.searchParams.delete('checkout');
+      clean.searchParams.delete('session_id');
       clean.searchParams.delete('ticketId');
       clean.searchParams.delete('onboarding');
       window.history.replaceState({}, '', clean.pathname + clean.search);
     }
-  }, [setActiveTab]);
+  }, [setActiveTab, syncFromServer]);
 
   useEffect(() => {
     if (!toast) return;

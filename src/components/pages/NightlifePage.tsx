@@ -8,6 +8,7 @@ import { useStore } from '@/lib/store';
 import { NightlifePin } from '@/types';
 import NightlifeVenueCard from '@/components/nightlife/NightlifeVenueCard';
 import NightlifeMnoEventsBrowse from '@/components/nightlife/NightlifeMnoEventsBrowse';
+import MyTicketsWallet from '@/components/nightlife/MyTicketsWallet';
 import SellTicketPanel, { type MnoSellSeed, type SellTicketPayload } from '@/components/nightlife/SellTicketPanel';
 import {
   NightlifeMnoEventSheet,
@@ -18,7 +19,7 @@ import AddPartyPanel from '@/components/nightlife/AddPartyPanel';
 import { isTrustedStripeRedirect } from '@/lib/validation';
 import { writeSellerDashboardCache } from '@/lib/seller-dashboard-cache';
 
-type NightlifeView = 'tickets' | 'map';
+type NightlifeView = 'tickets' | 'mine' | 'map';
 const NightlifeMap = dynamic(() => import('./NightlifeMap'), { ssr: false });
 const NIGHTLIFE_REP_STORAGE = 'yap-nightlife-rep-code';
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -29,6 +30,7 @@ function normalizeCheckoutRepCode(raw: string): string {
 
 export default function NightlifePage() {
   const nightlifeTickets = useStore((s) => s.nightlifeTickets);
+  const nightlifePurchases = useStore((s) => s.nightlifePurchases);
   const addNightlifeTicket = useStore((s) => s.addNightlifeTicket);
   const nightlifePins = useStore((s) => s.nightlifePins);
   const addNightlifePin = useStore((s) => s.addNightlifePin);
@@ -38,6 +40,14 @@ export default function NightlifePage() {
   useEffect(() => {
     if (searchQuery.trim()) setView('tickets');
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (sessionStorage.getItem('yap-nightlife-open-wallet')) {
+      sessionStorage.removeItem('yap-nightlife-open-wallet');
+      setView('mine');
+    }
+  }, []);
   const [showTicketForm, setShowTicketForm] = useState(false);
   const [showPartyForm, setShowPartyForm] = useState(false);
   const [partyName, setPartyName] = useState('');
@@ -52,7 +62,30 @@ export default function NightlifePage() {
   const refreshStripeSellerStatus = useStore((s) => s.refreshStripeSellerStatus);
   const stripeEnabled = stripeSellerStatus?.enabled ?? null;
   const stripeOnboardingComplete = stripeSellerStatus?.onboardingComplete ?? false;
+  const stripeCanReceivePayments = stripeSellerStatus?.canReceivePayments ?? false;
   const stripeHasConnect = stripeSellerStatus?.connectAccount ?? false;
+  const canListTickets =
+    stripeEnabled !== false &&
+    stripeCanReceivePayments &&
+    stripeOnboardingComplete;
+
+  const openSellFlow = (afterOpen?: () => void) => {
+    if (stripeEnabled === false) {
+      setStripeNotice('Payouts aren’t on this build yet.');
+      return;
+    }
+    if (!stripeSellerStatus) {
+      void refreshStripeSellerStatus();
+      setShowSellerDashboard(true);
+      return;
+    }
+    if (!canListTickets) {
+      setShowSellerDashboard(true);
+      return;
+    }
+    afterOpen?.();
+    setShowTicketForm(true);
+  };
   const stripeWebhooks = stripeSellerStatus?.webhooks ?? true;
   const [venueEventsPin, setVenueEventsPin] = useState<NightlifePin | null>(null);
   const [mnoEventId, setMnoEventId] = useState<string | null>(null);
@@ -141,6 +174,12 @@ export default function NightlifePage() {
   const clubs = mappablePins.filter((pin) => pin.type === 'nightclub');
   const houseParties = mappablePins.filter((pin) => pin.type === 'house-party');
   const handleSellTicket = async (ticket: SellTicketPayload) => {
+    if (!canListTickets) {
+      setShowTicketForm(false);
+      setShowSellerDashboard(true);
+      throw new Error('Finish payouts in your seller dashboard before you list.');
+    }
+    try {
     await addNightlifeTicket({
       title: ticket.title,
       venue: ticket.venue,
@@ -155,6 +194,10 @@ export default function NightlifePage() {
       ...(ticket.ticketProofBase64 ? { ticketProofBase64: ticket.ticketProofBase64 } : {}),
     });
     setShowTicketForm(false);
+    } catch (err) {
+      setStripeNotice(err instanceof Error ? err.message : 'Could not list ticket.');
+      throw err;
+    }
   };
 
   const openMnoEvent = (eventId: string) => {
@@ -162,10 +205,17 @@ export default function NightlifePage() {
   };
 
   const handleSellForMnoEvent = (event: MnoEventDetail, slotId?: string) => {
-    setMnoSellSeed({ eventId: event.id, slotId });
-    setMnoEventId(null);
-    setShowTicketForm(true);
+    openSellFlow(() => {
+      setMnoSellSeed({ eventId: event.id, slotId });
+      setMnoEventId(null);
+    });
   };
+
+  useEffect(() => {
+    if (!showTicketForm || canListTickets) return;
+    setShowTicketForm(false);
+    setShowSellerDashboard(true);
+  }, [showTicketForm, canListTickets, setShowSellerDashboard]);
 
   const openStripeConnect = async (path: 'onboard' | 'dashboard') => {
     if (stripeEnabled === false) {
@@ -236,9 +286,9 @@ export default function NightlifePage() {
       });
       const data = await response.json();
       if (isTrustedStripeRedirect(data?.url)) window.location.href = data.url;
-      else setStripeNotice(data?.error ?? 'Could not start checkout.');
+      else setStripeNotice(data?.error ?? 'Couldn’t start checkout.');
     } catch {
-      setStripeNotice('Checkout failed. Check your connection and try again.');
+      setStripeNotice('Network issue — try again.');
     } finally {
       setIsCheckoutLoading(null);
     }
@@ -334,10 +384,10 @@ export default function NightlifePage() {
 
       {/* Tabs */}
       <div className="mb-5 flex rounded-2xl bg-surface/80 p-1 ring-1 ring-divider">
-        {(['tickets', 'map'] as NightlifeView[]).map((tab) => {
+        {(['tickets', 'mine', 'map'] as NightlifeView[]).map((tab) => {
           const active = view === tab;
-          const Icon = tab === 'tickets' ? Ticket : MapPin;
-          const label = tab === 'tickets' ? 'Events' : 'Live map';
+          const Icon = tab === 'map' ? MapPin : Ticket;
+          const label = tab === 'tickets' ? 'Events' : tab === 'mine' ? 'My tickets' : 'Live map';
           return (
             <button
               key={tab}
@@ -393,6 +443,21 @@ export default function NightlifePage() {
               </div>
             )}
 
+            {nightlifePurchases.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setView('mine')}
+                className="mb-5 flex w-full items-center justify-between rounded-2xl bg-exeter/10 px-4 py-3 text-left ring-1 ring-exeter/25"
+              >
+                <span className="text-[13px] font-semibold text-foreground">
+                  {nightlifePurchases.length === 1
+                    ? '1 ticket in your wallet'
+                    : `${nightlifePurchases.length} tickets in your wallet`}
+                </span>
+                <span className="text-[12px] font-bold text-exeter">Open</span>
+              </button>
+            )}
+
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-[15px] font-semibold text-foreground">
@@ -420,7 +485,7 @@ export default function NightlifePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowTicketForm(true)}
+                  onClick={() => openSellFlow()}
                   className="flex items-center gap-1.5 rounded-full bg-exeter px-3.5 py-2 text-[11px] font-bold text-white shadow-[0_4px_16px_rgba(0,121,107,0.35)]"
                 >
                   <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -430,6 +495,20 @@ export default function NightlifePage() {
             </div>
 
             <NightlifeMnoEventsBrowse searchQuery={searchQuery} onSelectEvent={openMnoEvent} />
+          </motion.section>
+        ) : view === 'mine' ? (
+          <motion.section
+            key="mine"
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -12 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div className="mb-4">
+              <h2 className="text-[15px] font-semibold text-foreground">My tickets</h2>
+              <p className="text-[12px] text-muted-light">Bought resale tickets live here. Download anytime.</p>
+            </div>
+            <MyTicketsWallet />
           </motion.section>
         ) : (
           <motion.section

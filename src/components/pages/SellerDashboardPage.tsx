@@ -33,6 +33,7 @@ type ListingRow = {
   hasProof: boolean;
   proofIsPdf: boolean;
   canEdit: boolean;
+  visibleToBuyers: boolean;
 };
 
 type EventGroup = {
@@ -43,13 +44,15 @@ type EventGroup = {
   eventImageUrl: string | null;
   listingCount: number;
   onSaleCount: number;
+  hiddenCount: number;
   listings: ListingRow[];
 };
 
 type DashboardData = {
   connectReady: boolean;
+  canReceivePayments: boolean;
   hasConnectAccount: boolean;
-  holdHours: number;
+  hiddenFromBuyers: number;
   repCode: string;
   repUses: number;
   listings: ListingRow[];
@@ -328,29 +331,48 @@ export default function SellerDashboardPage() {
           </div>
         )}
 
+        {data && !selectedEventKey && data.hiddenFromBuyers > 0 && (
+          <PayoutSetupBanner
+            hasConnect={data.hasConnectAccount}
+            hiddenCount={data.hiddenFromBuyers}
+            busy={connectingSetup}
+            onContinue={() => void startPayoutSetup()}
+          />
+        )}
+
         {data && !selectedEventKey && (
           <section className="mb-8">
             <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wide text-muted">Balance</h2>
             {!data.hasConnectAccount ? (
               <div className="rounded-2xl bg-surface px-6 py-8 text-center ring-1 ring-divider">
-                <p className="text-[16px] font-semibold text-foreground">Set up payouts</p>
-                <p className="mt-2 text-[13px] text-muted">Connect Stripe to see pending and paid balances.</p>
+                <p className="text-[16px] font-semibold text-foreground">Payouts</p>
+                <p className="mt-2 text-[13px] text-muted">Hook up Stripe before you list — buyers can’t pay you without it.</p>
                 <button
                   type="button"
                   disabled={connectingSetup}
                   onClick={() => void startPayoutSetup()}
                   className="mt-5 rounded-full bg-exeter px-6 py-3 text-[14px] font-bold text-white disabled:opacity-60"
                 >
-                  {connectingSetup ? 'Opening Stripe…' : 'Set up payouts'}
+                  {connectingSetup ? 'Opening…' : 'Connect Stripe'}
+                </button>
+              </div>
+            ) : !data.canReceivePayments ? (
+              <div className="rounded-2xl bg-surface px-5 py-5 ring-1 ring-amber-500/25">
+                <p className="text-[15px] font-semibold text-foreground">Stripe isn’t finished</p>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+                  You started payouts but buyers still can’t checkout. Wrap it up in Stripe and your listings go live.
+                </p>
+                <button
+                  type="button"
+                  disabled={connectingSetup}
+                  onClick={() => void startPayoutSetup()}
+                  className="mt-4 w-full rounded-full bg-exeter py-3 text-[14px] font-bold text-white disabled:opacity-60"
+                >
+                  {connectingSetup ? 'Opening…' : 'Continue in Stripe'}
                 </button>
               </div>
             ) : (
               <>
-                <p className="mb-4 text-[13px] leading-relaxed text-muted">
-                  Money hits your Stripe account{' '}
-                  <span className="font-semibold text-foreground">{data.holdHours} hours</span> after each sale.
-                  Stripe pays your bank on their usual schedule.
-                </p>
                 <div className="grid grid-cols-2 gap-3">
                   <StatCard label="Pending" value={`£${data.summary.pendingGBP.toFixed(2)}`} sub="In hold" />
                   <StatCard label="Releasing" value={`£${data.summary.readyGBP.toFixed(2)}`} sub="Past 24h" />
@@ -380,7 +402,15 @@ export default function SellerDashboardPage() {
             <div>
               <h2 className="text-[13px] font-bold uppercase tracking-wide text-muted">Your listings</h2>
               <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted">
-                <span>{data.summary.activeListings} on sale</span>
+                <span>{data.summary.activeListings} listed</span>
+                {data.hiddenFromBuyers > 0 && (
+                  <>
+                    <span>·</span>
+                    <span className="text-amber-600 dark:text-amber-400">
+                      {data.hiddenFromBuyers} not live
+                    </span>
+                  </>
+                )}
                 <span>·</span>
                 <span>{data.summary.totalSold} sold</span>
               </div>
@@ -446,7 +476,10 @@ export default function SellerDashboardPage() {
                     </p>
                     <p className="mt-0.5 text-[12px] text-muted">{group.venue}</p>
                     <p className="mt-1 text-[11px] font-semibold text-muted-light">
-                      {group.onSaleCount} on sale · {group.listingCount} total
+                      {group.onSaleCount} live
+                      {group.hiddenCount > 0 ? ` · ${group.hiddenCount} waiting on payouts` : ''}
+                      {' · '}
+                      {group.listingCount} total
                     </p>
                   </div>
                   <ChevronRight className="h-5 w-5 shrink-0 text-muted" strokeWidth={2} />
@@ -588,14 +621,56 @@ function ToggleChip({
   );
 }
 
-function SaleStatusBadge({ status }: { status: 'on_sale' | 'reserved' | 'sold' }) {
+function PayoutSetupBanner({
+  hasConnect,
+  hiddenCount,
+  busy,
+  onContinue,
+}: {
+  hasConnect: boolean;
+  hiddenCount: number;
+  busy: boolean;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="mb-5 rounded-2xl bg-amber-500/10 px-4 py-4 ring-1 ring-amber-500/30">
+      <p className="text-[14px] font-semibold text-foreground">
+        {hiddenCount === 1 ? '1 listing' : `${hiddenCount} listings`} hidden from buyers
+      </p>
+      <p className="mt-1 text-[13px] text-muted">
+        {hasConnect
+          ? 'Finish Stripe payouts and they’ll show up on events with a buy button.'
+          : 'Connect Stripe first — nothing goes live until that’s done.'}
+      </p>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onContinue}
+        className="mt-3 rounded-full bg-exeter px-4 py-2 text-[13px] font-bold text-white disabled:opacity-60"
+      >
+        {busy ? 'Opening…' : hasConnect ? 'Continue in Stripe' : 'Connect Stripe'}
+      </button>
+    </div>
+  );
+}
+
+function SaleStatusBadge({
+  status,
+  live = true,
+}: {
+  status: 'on_sale' | 'reserved' | 'sold';
+  live?: boolean;
+}) {
   if (status === 'sold') {
     return <span className="text-[10px] font-bold uppercase text-red-500">Sold</span>;
   }
   if (status === 'reserved') {
     return <span className="text-[10px] font-bold uppercase text-amber-500">Reserved</span>;
   }
-  return <span className="text-[10px] font-bold uppercase text-exeter">On sale</span>;
+  if (!live) {
+    return <span className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">Not live</span>;
+  }
+  return <span className="text-[10px] font-bold uppercase text-exeter">Live</span>;
 }
 
 function PriceEditor({
@@ -662,7 +737,7 @@ function EventSlotRow({
         <div className="min-w-0">
           <p className="text-[14px] font-semibold text-foreground">{row.slotLabel}</p>
           <div className="mt-1">
-            <SaleStatusBadge status={row.status} />
+            <SaleStatusBadge status={row.status} live={row.visibleToBuyers} />
           </div>
         </div>
         <PriceEditor price={row.price} canEdit={row.canEdit} busy={busy} onSave={onSavePrice} />
@@ -773,7 +848,7 @@ function TicketManageCard({
           <p className="py-8 text-center text-[13px] text-muted">No preview</p>
         )}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <SaleStatusBadge status={row.status} />
+          <SaleStatusBadge status={row.status} live={row.visibleToBuyers} />
           <PriceEditor price={row.price} canEdit={row.canEdit} busy={busy} onSave={onSavePrice} />
         </div>
         {row.canEdit && (
