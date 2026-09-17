@@ -64,9 +64,6 @@ export default function NightlifeTicketCard({
           </div>
           <div className="text-right">
             <p className="text-[22px] font-black tracking-tight text-white">£{ticket.price}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-white/50">
-              {ticket.quantity ?? 1} left
-            </p>
           </div>
         </div>
 

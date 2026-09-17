@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/auth-session';
 import { checkRateLimit } from '@/lib/rate-limit';
@@ -168,9 +168,9 @@ export async function GET(request: NextRequest) {
 
   const serializedTickets = await serializeNightlifeTicketsForViewer(nightlifeTickets, userId);
 
-  const botTick = checkRateLimit('reaction-bot-tick-global', 1, 7 * 60 * 1000);
+  const botTick = checkRateLimit('reaction-bot-tick-global', 1, 50 * 1000);
   if (botTick.ok) {
-    void runReactionBotTick().catch((err) => console.error('[bootstrap] reaction bots', err));
+    after(() => runReactionBotTick().catch((err) => console.error('[bootstrap] reaction bots', err)));
   }
 
   return NextResponse.json(

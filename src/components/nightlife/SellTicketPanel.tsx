@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { EventListingOptions, EventSuggestion, EventTicketType } from '@/types';
 import { fetchFixrShopListings, listingFromFixrSuggestion, type FixrListingBundle } from '@/lib/fixr-client';
+import TicketLiveCelebration from '@/components/nightlife/TicketLiveCelebration';
 
 export type SellTicketPayload = {
   title: string;
@@ -22,11 +23,10 @@ export type SellTicketPayload = {
   price: number;
   eventDate: Date;
   eventEndDate?: Date;
-  quantity: number;
   mnoEventId?: string;
   mnoTicketId?: string;
-  ticketProofUrl?: string;
   ticketProofMime: string;
+  ticketProofUrl?: string;
   ticketProofBase64?: string;
 };
 
@@ -115,8 +115,8 @@ export default function SellTicketPanel({
 
   const [selectedType, setSelectedType] = useState<EventTicketType | null>(null);
   const [price, setPrice] = useState('');
-  const [qty, setQty] = useState('1');
   const [submitting, setSubmitting] = useState(false);
+  const [wentLive, setWentLive] = useState(false);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [proofError, setProofError] = useState('');
@@ -135,13 +135,19 @@ export default function SellTicketPanel({
     setListingError('');
     setSelectedType(null);
     setPrice('');
-    setQty('1');
     setProofFile(null);
     setProofPreview(null);
     setProofError('');
+    setWentLive(false);
     fixrListingsRef.current.clear();
     setMnoMeta(null);
   };
+
+  useEffect(() => {
+    if (!wentLive) return;
+    const t = window.setTimeout(() => onClose(), 2600);
+    return () => window.clearTimeout(t);
+  }, [wentLive, onClose]);
 
   useEffect(() => {
     if (!open || !mnoSellSeed?.eventId) return;
@@ -441,12 +447,11 @@ export default function SellTicketPanel({
           : listing.eventDate
             ? { eventEndDate: new Date(new Date(listing.eventDate).getTime() + 6 * 60 * 60 * 1000) }
             : {}),
-        quantity: Math.max(1, Number(qty) || 1),
         ...(mnoMeta?.eventId ? { mnoEventId: mnoMeta.eventId, mnoTicketId: selectedType.id } : {}),
         ticketProofMime: proof.mime,
         ...(proof.url ? { ticketProofUrl: proof.url } : { ticketProofBase64: proof.base64 }),
       });
-      onClose();
+      setWentLive(true);
     } catch (err) {
       setProofError(err instanceof Error ? err.message : 'Could not upload ticket');
     } finally {
@@ -486,7 +491,7 @@ export default function SellTicketPanel({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 32, stiffness: 380 }}
-            className="fixed bottom-0 left-0 right-0 z-[70] mx-auto flex max-h-[92dvh] max-w-2xl flex-col rounded-t-3xl bg-background shadow-2xl"
+            className="relative fixed bottom-0 left-0 right-0 z-[70] mx-auto flex min-h-[28rem] max-h-[92dvh] max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-background shadow-2xl"
           >
             <div className="flex shrink-0 justify-center pt-2.5 pb-1">
               <div className="h-1 w-9 rounded-full bg-muted-light/50" />
@@ -690,32 +695,18 @@ export default function SellTicketPanel({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted">
-                        Your price (£)
-                      </label>
-                      <input
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ''))}
-                        inputMode="decimal"
-                        required
-                        placeholder="0"
-                        className="w-full rounded-xl bg-surface px-4 py-3 text-[16px] font-semibold outline-none ring-1 ring-divider focus:ring-2 focus:ring-exeter/30"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted">
-                        How many
-                      </label>
-                      <input
-                        value={qty}
-                        onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ''))}
-                        inputMode="numeric"
-                        required
-                        className="w-full rounded-xl bg-surface px-4 py-3 text-[16px] font-semibold outline-none ring-1 ring-divider focus:ring-2 focus:ring-exeter/30"
-                      />
-                    </div>
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-muted">
+                      Your price (£)
+                    </label>
+                    <input
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ''))}
+                      inputMode="decimal"
+                      required
+                      placeholder="0"
+                      className="w-full rounded-xl bg-surface px-4 py-3 text-[16px] font-semibold outline-none ring-1 ring-divider focus:ring-2 focus:ring-exeter/30"
+                    />
                   </div>
 
                   <button
@@ -733,6 +724,16 @@ export default function SellTicketPanel({
                 </form>
               )}
             </div>
+            <AnimatePresence>
+              {wentLive && listing && selectedType && (
+                <TicketLiveCelebration
+                  title={clampListingTitle(listing.title, selectedType.name)}
+                  venue={listing.venue}
+                  price={Number(price) || 0}
+                  onDone={onClose}
+                />
+              )}
+            </AnimatePresence>
           </motion.div>
         </>
       )}

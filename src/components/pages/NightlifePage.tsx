@@ -185,7 +185,7 @@ export default function NightlifePage() {
       venue: ticket.venue,
       price: ticket.price,
       eventDate: ticket.eventDate,
-      quantity: ticket.quantity,
+      quantity: 1,
       ticketProofMime: ticket.ticketProofMime,
       ...(ticket.eventEndDate ? { eventEndDate: ticket.eventEndDate } : {}),
       ...(ticket.mnoEventId ? { mnoEventId: ticket.mnoEventId } : {}),
@@ -193,7 +193,6 @@ export default function NightlifePage() {
       ...(ticket.ticketProofUrl ? { ticketProofUrl: ticket.ticketProofUrl } : {}),
       ...(ticket.ticketProofBase64 ? { ticketProofBase64: ticket.ticketProofBase64 } : {}),
     });
-    setShowTicketForm(false);
     } catch (err) {
       setStripeNotice(err instanceof Error ? err.message : 'Could not list ticket.');
       throw err;

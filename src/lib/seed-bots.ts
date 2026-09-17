@@ -109,12 +109,24 @@ export async function ensureSeedBots(): Promise<string[]> {
     return cachedBotIds;
   }
 
-  const ids: string[] = [];
+  const existing = await prisma.user.findMany({
+    where: { email: { startsWith: 'seed-' } },
+    select: { id: true, email: true },
+  });
+
+  if (existing.length >= REACTION_BOT_COUNT) {
+    cachedBotIds = existing.map((u) => u.id);
+    return cachedBotIds;
+  }
+
+  const have = new Set(existing.map((u) => u.email?.toLowerCase()));
+  const missing = BOT_PROFILES.filter((bot) => !have.has(bot.email.toLowerCase()));
+  const ids = existing.map((u) => u.id);
   const batchSize = 25;
 
-  for (let start = 0; start < BOT_PROFILES.length; start += batchSize) {
-    const slice = BOT_PROFILES.slice(start, start + batchSize);
-    await Promise.all(
+  for (let start = 0; start < missing.length; start += batchSize) {
+    const slice = missing.slice(start, start + batchSize);
+    const created = await Promise.all(
       slice.map(async (bot) => {
         const user = await prisma.user.upsert({
           where: { email: bot.email },
@@ -127,9 +139,10 @@ export async function ensureSeedBots(): Promise<string[]> {
           update: {},
           select: { id: true },
         });
-        ids.push(user.id);
+        return user.id;
       }),
     );
+    ids.push(...created);
   }
 
   cachedBotIds = ids;
