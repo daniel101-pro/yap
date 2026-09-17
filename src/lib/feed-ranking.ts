@@ -88,29 +88,14 @@ export function totalReactionCount(post: Post): number {
 }
 
 /**
- * New posts start at the top (newest first). Each reaction bumps a post up one slot,
- * so a post with 3 reacts sits three places higher than it would by age alone.
+ * First come first served: newest posts on top. Reactions never move the order.
  */
-function rankPostsByRecencyAndReactions(posts: Post[]): Post[] {
-  const chronological = [...posts].sort((a, b) => {
+function rankPostsChronological(posts: Post[]): Post[] {
+  return [...posts].sort((a, b) => {
     if (a.pending && !b.pending) return -1;
     if (!a.pending && b.pending) return 1;
     return b.timestamp.getTime() - a.timestamp.getTime();
   });
-
-  return chronological
-    .map((post, index) => ({
-      post,
-      effectiveRank: index - totalReactionCount(post),
-    }))
-    .sort((a, b) => {
-      if (a.effectiveRank !== b.effectiveRank) return a.effectiveRank - b.effectiveRank;
-      const reactionsA = totalReactionCount(a.post);
-      const reactionsB = totalReactionCount(b.post);
-      if (reactionsA !== reactionsB) return reactionsB - reactionsA;
-      return b.post.timestamp.getTime() - a.post.timestamp.getTime();
-    })
-    .map(({ post }) => post);
 }
 
 export function scorePost(post: Post, ctx: RankingContext): number {
@@ -138,7 +123,7 @@ export function rankPosts(posts: Post[], ctx: RankingContext, searchQuery?: stri
   const tokens = searchTokens(searchQuery);
 
   if (tokens.length === 0) {
-    return rankPostsByRecencyAndReactions(posts);
+    return rankPostsChronological(posts);
   }
 
   const scored = posts.map((post) => {
