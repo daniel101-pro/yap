@@ -75,7 +75,8 @@ export default function NightlifePage() {
     fetch('/api/stripe/seller-dashboard', { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
-        if (d && !d.error) writeSellerDashboardCache(d);
+        const uid = useStore.getState().userProfile?.id;
+        if (uid && d && !d.error) writeSellerDashboardCache(uid, d);
       })
       .catch(() => undefined);
   }, [stripeOnboardingComplete]);

@@ -88,10 +88,11 @@ async function readApiJson(res: Response): Promise<Record<string, unknown>> {
 
 export default function SellerDashboardPage() {
   const setShowSellerDashboard = useStore((s) => s.setShowSellerDashboard);
+  const userId = useStore((s) => s.userProfile?.id);
   const removeNightlifeTicket = useStore((s) => s.removeNightlifeTicket);
   const patchNightlifeTicket = useStore((s) => s.patchNightlifeTicket);
-  const [data, setData] = useState<DashboardData | null>(() => readSellerDashboardCache<DashboardData>());
-  const [loading, setLoading] = useState(() => !readSellerDashboardCache<DashboardData>());
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
   const dataRef = useRef(data);
   dataRef.current = data;
   const [error, setError] = useState('');
@@ -112,7 +113,8 @@ export default function SellerDashboardPage() {
         throw new Error(typeof json.error === 'string' ? json.error : 'Could not load dashboard');
       }
       const next = json as unknown as DashboardData;
-      writeSellerDashboardCache(next);
+      const uid = useStore.getState().userProfile?.id;
+      if (uid) writeSellerDashboardCache(uid, next);
       setData(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load dashboard');
@@ -123,10 +125,23 @@ export default function SellerDashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!userId) return;
+    const cached = readSellerDashboardCache<DashboardData>(userId);
+    if (cached) {
+      setData(cached);
+      setLoading(false);
+    } else {
+      setData(null);
+      setLoading(true);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
     void load();
     const t = window.setInterval(() => void load(), 60_000);
     return () => window.clearInterval(t);
-  }, [load]);
+  }, [load, userId]);
 
   useEffect(() => {
     if (listingsView === 'ticket') setSelectedEventKey(null);
@@ -167,7 +182,7 @@ export default function SellerDashboardPage() {
           listings: g.listings.map((l) => (l.id === ticketId ? { ...l, price } : l)),
         }));
         const next = { ...prev, listings, eventsByGroup };
-        writeSellerDashboardCache(next);
+        if (userId) writeSellerDashboardCache(userId, next);
         return next;
       });
     } catch (err) {
@@ -217,7 +232,7 @@ export default function SellerDashboardPage() {
             activeListings: listings.filter((l) => l.status === 'on_sale').length,
           },
         };
-        writeSellerDashboardCache(next);
+        if (userId) writeSellerDashboardCache(userId, next);
         return next;
       });
     } catch (err) {

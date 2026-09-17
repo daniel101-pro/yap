@@ -6,11 +6,36 @@ import { serializeTicket } from '@/lib/serializers';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { clampString, LIMITS, parseBoundedNumber } from '@/lib/validation';
 import { decodeTicketProofBase64, isAllowedTicketProofUrl } from '@/lib/ticket-proof';
+import { publicActiveNightlifeTicketsWhere } from '@/lib/nightlife-tickets-query';
 
 function prismaBytesFromBuffer(buf: Buffer): Uint8Array<ArrayBuffer> {
   const copy = new Uint8Array(buf.length);
   copy.set(buf);
   return copy as Uint8Array<ArrayBuffer>;
+}
+
+export async function GET(request: NextRequest) {
+  const user = await getSessionUser();
+  if (!user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const mnoEventId = request.nextUrl.searchParams.get('mnoEventId')?.trim() ?? '';
+  const now = new Date();
+
+  const tickets = await prisma.nightlifeTicket.findMany({
+    where: {
+      ...publicActiveNightlifeTicketsWhere(user.id, now),
+      ...(mnoEventId ? { mnoEventId: mnoEventId.slice(0, 32) } : {}),
+    },
+    orderBy: [{ price: 'asc' }, { createdAt: 'desc' }],
+    take: mnoEventId ? 80 : 200,
+    include: { seller: { select: { anonymousHandle: true } } },
+  });
+
+  return NextResponse.json({
+    tickets: tickets.map((t) => serializeTicket(t)),
+  });
 }
 
 export async function POST(request: NextRequest) {

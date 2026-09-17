@@ -14,6 +14,7 @@ import { seedDatabaseIfEmpty } from '@/lib/seed';
 import { getBlockedAuthorIds } from '@/lib/moderation';
 import { HOUSE_PARTY_TTL_MS, MAX_PUBLIC_PINS } from '@/lib/pin-privacy';
 import { seedAuthorFilter } from '@/lib/seed-bots';
+import { publicActiveNightlifeTicketsWhere } from '@/lib/nightlife-tickets-query';
 
 const sellerInclude = {
   seller: {
@@ -90,13 +91,9 @@ export async function GET(request: NextRequest) {
         include: sellerInclude,
       }),
       prisma.nightlifeTicket.findMany({
-        where: {
-          seller: { ...seedAuthorFilter, isBanned: false },
-          status: 'active',
-          OR: [{ eventDate: { gte: now } }, { sellerId: userId }],
-        },
+        where: publicActiveNightlifeTicketsWhere(userId, now),
         orderBy: { eventDate: 'asc' },
-        take: 100,
+        take: 200,
         include: { seller: { select: { id: true, anonymousHandle: true } } },
       }),
       prisma.nightlifePin.findMany({

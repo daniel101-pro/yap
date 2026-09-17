@@ -1,3 +1,4 @@
+import { get } from '@vercel/blob';
 import { ticketProofEmailFilename } from '@/lib/ticket-proof';
 
 export function bufferFromTicketProofRecord(options: {
@@ -38,24 +39,39 @@ export async function fetchTicketProofAttachment(
 
   if (!proofUrl) return null;
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
   if (!token) return null;
 
-  const res = await fetch(proofUrl, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: 'no-store',
-  });
+  let buffer: Buffer | null = null;
+  let contentType = mime;
 
-  if (!res.ok) return null;
+  try {
+    const blob = await get(proofUrl, { access: 'private', token });
+    if (blob && blob.statusCode === 200 && blob.stream) {
+      buffer = Buffer.from(await new Response(blob.stream).arrayBuffer());
+      contentType = blob.blob.contentType || mime;
+    }
+  } catch {
+    buffer = null;
+  }
 
-  const buffer = Buffer.from(await res.arrayBuffer());
-  if (buffer.length === 0) return null;
+  if (!buffer?.length) {
+    const res = await fetch(proofUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    buffer = Buffer.from(await res.arrayBuffer());
+    contentType = mime || res.headers.get('content-type') || 'application/octet-stream';
+  }
 
-  const contentType = mime || res.headers.get('content-type') || 'application/octet-stream';
+  if (!buffer.length) return null;
+
+  const type = (contentType || 'application/octet-stream').split(';')[0].trim();
 
   return {
     buffer,
-    filename: ticketProofEmailFilename(title, contentType.split(';')[0].trim()),
-    contentType: contentType.split(';')[0].trim(),
+    filename: ticketProofEmailFilename(title, type),
+    contentType: type,
   };
 }
