@@ -96,6 +96,7 @@ export default function NightlifeMap({ pins, draftPin, onMapClick, onOpenVenueEv
     iconAnchor: [markerAnchor, markerAnchor],
     popupAnchor: [0, popupAnchorY],
   });
+  
 
   const partyIcon = L.divIcon({
     className: 'nightlife-marker-wrapper',
