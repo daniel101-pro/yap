@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { ensureSeedBots } from '@/lib/seed-bots';
+import { getReactionBotIds } from '@/lib/seed-bots';
 
 const DEFAULT_PINS = [
   {
@@ -42,7 +42,7 @@ const DEFAULT_PINS = [
 
 /** Seed venue pins + reaction-only bots — no fake posts, listings, or tickets. */
 export async function seedDatabaseIfEmpty() {
-  await ensureSeedBots();
+  await getReactionBotIds();
 
   const pinCount = await prisma.nightlifePin.count();
   if (pinCount > 0) return;

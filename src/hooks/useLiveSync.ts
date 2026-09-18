@@ -23,11 +23,22 @@ export function useLiveSync() {
     syncIfVisible();
     const intervalMs = SYNC_INTERVAL_MS + Math.floor(Math.random() * SYNC_JITTER_MS);
     const interval = setInterval(syncIfVisible, intervalMs);
+    const botInterval = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      fetch('/api/feed/reaction-tick', { method: 'POST', credentials: 'same-origin' }).catch(
+        () => undefined,
+      );
+    }, 40000);
     window.addEventListener('focus', syncIfVisible);
     document.addEventListener('visibilitychange', syncIfVisible);
 
+    void fetch('/api/feed/reaction-tick', { method: 'POST', credentials: 'same-origin' }).catch(
+      () => undefined,
+    );
+
     return () => {
       clearInterval(interval);
+      clearInterval(botInterval);
       window.removeEventListener('focus', syncIfVisible);
       document.removeEventListener('visibilitychange', syncIfVisible);
     };

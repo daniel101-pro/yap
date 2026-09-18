@@ -103,6 +103,23 @@ export const seedAuthorFilter = {
 
 let cachedBotIds: string[] | null = null;
 
+/** Cheap lookup — never upserts unless almost no bots exist. */
+export async function getReactionBotIds(): Promise<string[]> {
+  if (cachedBotIds && cachedBotIds.length >= 20) return cachedBotIds;
+
+  const existing = await prisma.user.findMany({
+    where: { email: { startsWith: 'seed-' } },
+    select: { id: true },
+  });
+
+  if (existing.length >= 20) {
+    cachedBotIds = existing.map((u) => u.id);
+    return cachedBotIds;
+  }
+
+  return ensureSeedBots();
+}
+
 /** Reaction-only accounts — never authors in feed. */
 export async function ensureSeedBots(): Promise<string[]> {
   if (cachedBotIds && cachedBotIds.length >= REACTION_BOT_COUNT) {
