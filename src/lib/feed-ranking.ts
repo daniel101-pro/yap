@@ -149,7 +149,7 @@ export function rankPosts(posts: Post[], ctx: RankingContext, searchQuery?: stri
 export function isTrendingPost(post: Post, _ctx: RankingContext): boolean {
   const hours = hoursSince(post.timestamp);
   if (hours > 48) return false;
-  return totalReactionCount(post) >= 3;
+  return totalReactionCount(post) >= 18 && post.commentCount >= 1;
 }
 
 function listingEngagement(listing: Listing): number {
