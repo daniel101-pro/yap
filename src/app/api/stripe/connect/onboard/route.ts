@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth-session';
 import { prisma } from '@/lib/prisma';
 import {
@@ -8,9 +8,9 @@ import {
   STRIPE_NOT_CONFIGURED,
 } from '@/lib/stripe';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { publicErrorMessage } from '@/lib/security';
+import { getTrustedOrigin, publicErrorMessage } from '@/lib/security';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     if (!isStripeConfigured()) {
       return NextResponse.json({ error: stripeUnavailableMessage() }, { status: 503 });
@@ -28,9 +28,7 @@ export async function POST() {
 
     const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
     const stripe = getStripeServerClient();
-    const origin = process.env.AUTH_URL?.trim()
-      ? new URL(process.env.AUTH_URL).origin
-      : 'http://localhost:3000';
+    const origin = getTrustedOrigin(request);
 
     let accountId = dbUser?.stripeAccountId;
 

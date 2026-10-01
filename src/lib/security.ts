@@ -17,6 +17,10 @@ export function getTrustedOrigin(request: NextRequest): string {
       // Fall through to the request host.
     }
   }
+  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (process.env.VERCEL_ENV === 'production' && productionHost) {
+    return `https://${productionHost.replace(/^https?:\/\//, '')}`;
+  }
   return request.nextUrl.origin;
 }
 
