@@ -220,13 +220,6 @@ export default function AdminInbox() {
   }, [loadList]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void loadList(true);
-    }, 30_000);
-    return () => window.clearInterval(interval);
-  }, [loadList]);
-
-  useEffect(() => {
     setSelectedId(null);
     setThread(null);
     setChecked(new Set());

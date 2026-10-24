@@ -24,8 +24,6 @@ const ICONS: Record<string, React.ReactNode> = {
   inbox: <Inbox className="h-5 w-5 text-exeter" strokeWidth={1.8} />,
 };
 
-const POLL_MS = 12_000;
-
 export default function AdminOverviewDashboard({
   initial,
 }: {
@@ -34,28 +32,8 @@ export default function AdminOverviewDashboard({
   const [metrics, setMetrics] = useState(initial);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const poll = async () => {
-      if (document.visibilityState !== 'visible') return;
-      try {
-        const res = await fetch('/api/admin/metrics', { cache: 'no-store' });
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as SerializedAdminMetrics;
-        setMetrics(data);
-      } catch {
-        // ignore
-      }
-    };
-
-    const interval = setInterval(poll, POLL_MS);
-    document.addEventListener('visibilitychange', poll);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', poll);
-    };
-  }, []);
+    setMetrics(initial);
+  }, [initial]);
 
   const priorityStats = metrics.stats.filter((s) => s.alert);
   const regularStats = metrics.stats.filter((s) => !s.alert);
@@ -65,7 +43,7 @@ export default function AdminOverviewDashboard({
       <div className="mb-6">
         <h1 className="text-[22px] font-bold tracking-tight text-foreground">Command center</h1>
         <p className="mt-1 text-[13px] text-muted">
-          Real-time snapshot of YAP — auto-refreshes every 12 seconds.
+          Snapshot of YAP. Refresh from the top bar when you want an update.
         </p>
       </div>
 

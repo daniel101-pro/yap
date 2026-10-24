@@ -3,40 +3,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const REFRESH_MS = 12_000;
+const REFRESH_EVENT = 'yap-admin-refresh';
 
 export function useAdminLiveSync() {
   const router = useRouter();
-  const [lastSync, setLastSync] = useState<Date | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const syncingRef = useRef(false);
 
   const sync = useCallback(async () => {
-    if (syncingRef.current || document.visibilityState !== 'visible') return;
+    if (syncingRef.current) return;
     syncingRef.current = true;
     setIsSyncing(true);
     try {
       router.refresh();
-      setLastSync(new Date());
+      window.dispatchEvent(new Event(REFRESH_EVENT));
     } finally {
       syncingRef.current = false;
       setIsSyncing(false);
     }
   }, [router]);
 
-  useEffect(() => {
-    sync();
-    const interval = setInterval(sync, REFRESH_MS);
-    window.addEventListener('focus', sync);
-    document.addEventListener('visibilitychange', sync);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', sync);
-      document.removeEventListener('visibilitychange', sync);
-    };
-  }, [sync]);
-
-  return { lastSync, isSyncing, sync };
+  return { isSyncing, sync };
 }
 
 export function useAdminBadges() {
@@ -52,24 +39,21 @@ export function useAdminBadges() {
     let cancelled = false;
 
     const fetchBadges = async () => {
-      if (document.visibilityState !== 'visible') return;
       try {
         const res = await fetch('/api/admin/metrics?scope=badges', { cache: 'no-store' });
         if (!res.ok || cancelled) return;
         const data = await res.json();
         setBadges(data.badges);
       } catch {
-        // ignore polling errors
+        // ignore
       }
     };
 
-    fetchBadges();
-    const interval = setInterval(fetchBadges, REFRESH_MS);
-    document.addEventListener('visibilitychange', fetchBadges);
+    void fetchBadges();
+    window.addEventListener(REFRESH_EVENT, fetchBadges);
     return () => {
       cancelled = true;
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', fetchBadges);
+      window.removeEventListener(REFRESH_EVENT, fetchBadges);
     };
   }, []);
 
