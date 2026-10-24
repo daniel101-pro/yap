@@ -130,34 +130,61 @@ export function stripHtml(html: string): string {
     .trim();
 }
 
+function stripQuotedText(text: string): string {
+  const withoutAttribution = text.split(/\n\s*On [^\n]{0,300}wrote:\s*\n/)[0];
+  return withoutAttribution
+    .split('\n')
+    .filter((line) => !line.trimStart().startsWith('>'))
+    .join('\n')
+    .trim();
+}
+
 export function makeSnippet(text: string, html: string): string {
-  const source = text.trim() || stripHtml(html);
-  return source.slice(0, 160);
+  const source = stripQuotedText(text) || text.trim() || stripHtml(html);
+  return source.replace(/\s+/g, ' ').slice(0, 160);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 export function textToHtml(text: string): string {
-  const escaped = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  return `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;white-space:pre-wrap">${escaped}</div>`;
+  return `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;white-space:pre-wrap">${escapeHtml(text)}</div>`;
 }
 
-export function quotePlain(original: { fromEmail: string; fromName: string | null; createdAt: Date; textBody: string; htmlBody: string }) {
+type QuotedOriginal = { fromEmail: string; fromName: string | null; createdAt: Date; textBody: string; htmlBody: string };
+
+function quoteAttribution(original: QuotedOriginal) {
   const who = original.fromName ? `${original.fromName} <${original.fromEmail}>` : original.fromEmail;
-  const when = original.createdAt.toLocaleString('en-GB', {
-    day: '2-digit',
+  const timeZone = 'Europe/London';
+  const day = original.createdAt.toLocaleDateString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
     month: 'short',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    timeZone,
   });
+  const time = original.createdAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone });
+  return `On ${day} at ${time}, ${who} wrote:`;
+}
+
+export function quotePlain(original: QuotedOriginal) {
   const body = original.textBody.trim() || stripHtml(original.htmlBody);
   const quoted = body
     .split('\n')
-    .map((line) => `> ${line}`)
+    .map((line) => (line.startsWith('>') ? `>${line}` : `> ${line}`))
     .join('\n');
-  return `On ${when}, ${who} wrote:\n${quoted}`;
+  return `${quoteAttribution(original)}\n${quoted}`;
+}
+
+/** Gmail and Apple Mail collapse this markup into a "…" toggle. */
+export function quoteHtml(original: QuotedOriginal) {
+  const body = original.htmlBody.trim() || textToHtml(original.textBody);
+  return `<div class="gmail_quote"><div dir="ltr" class="gmail_attr">${escapeHtml(quoteAttribution(original))}<br></div><blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px solid #ccc;padding-left:1ex">${body}</blockquote></div>`;
 }
 
 function asStringArray(value: unknown): string[] {
@@ -271,7 +298,7 @@ export async function ingestReceivedEmail(meta: {
     console.error('[inbox] fetch received email', error);
   }
 
-  const fromRaw = full?.from || meta.from || '';
+  const fromRaw = headerLookup(full?.headers, 'from') || full?.from || meta.from || '';
   const from = parseAddress(fromRaw);
   const toEmails = parseAddressList(full?.to ?? meta.to ?? []);
   const ccEmails = parseAddressList(full?.cc ?? meta.cc ?? []);
@@ -444,6 +471,8 @@ export async function sendAdminEmail(input: {
   let inReplyTo: string | null = null;
   let referencesHeader: string | null = null;
   let threadId = input.threadId ?? null;
+  let outgoingText = textBody;
+  let outgoingHtml = htmlBody;
 
   if (input.replyToMessageId) {
     const original = await prisma.adminEmail.findUnique({ where: { id: input.replyToMessageId } });
@@ -451,6 +480,8 @@ export async function sendAdminEmail(input: {
       threadId = original.threadId;
       inReplyTo = original.messageId;
       referencesHeader = [original.referencesHeader, original.messageId].filter(Boolean).join(' ') || null;
+      outgoingText = `${textBody}\n\n${quotePlain(original)}`;
+      outgoingHtml = `${htmlBody}<br>${quoteHtml(original)}`;
     }
   }
 
@@ -514,8 +545,8 @@ export async function sendAdminEmail(input: {
     bcc: bcc.length ? bcc : undefined,
     replyTo: getInboxAddress(),
     subject,
-    text: textBody,
-    html: htmlBody,
+    text: outgoingText,
+    html: outgoingHtml,
     headers: {
       ...(inReplyTo ? { 'In-Reply-To': inReplyTo } : {}),
       ...(referencesHeader ? { References: referencesHeader } : {}),
