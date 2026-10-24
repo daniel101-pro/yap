@@ -5,6 +5,7 @@ const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 function isCsrfExempt(pathname: string): boolean {
   if (pathname === '/api/stripe/webhook') return true;
+  if (pathname === '/api/webhooks/resend') return true;
   // Auth.js handlers only — not the custom send-code / check-email routes.
   if (pathname === '/api/auth/send-code' || pathname === '/api/auth/check-email') return false;
   return pathname === '/api/auth' || pathname.startsWith('/api/auth/');
@@ -23,10 +24,11 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com https://cdn.mynightout.app",
+      "img-src 'self' data: blob: https:",
       "media-src 'self' blob: https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com",
       "connect-src 'self' https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://*.stripe.com https://api.fixr.co",
       "font-src 'self' data:",
+      "frame-src 'self'",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self' https://*.stripe.com",

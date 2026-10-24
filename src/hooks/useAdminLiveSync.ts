@@ -45,6 +45,7 @@ export function useAdminBadges() {
     bannedUsers: 0,
     hiddenPosts: 0,
     newUsersToday: 0,
+    unreadEmails: 0,
   });
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, MessageSquare, ShoppingBag, PartyPopper, Flag, TrendingUp } from 'lucide-react';
+import { Users, MessageSquare, ShoppingBag, PartyPopper, Flag, TrendingUp, Inbox } from 'lucide-react';
 import AnimatedStatCard from '@/components/admin/AnimatedStatCard';
 import FadeInCard from '@/components/admin/FadeInCard';
 import RecentActivityFeed from '@/components/admin/RecentActivityFeed';
@@ -21,6 +21,7 @@ const ICONS: Record<string, React.ReactNode> = {
   listings: <ShoppingBag className="h-5 w-5 text-exeter" strokeWidth={1.8} />,
   tickets: <PartyPopper className="h-5 w-5 text-exeter" strokeWidth={1.8} />,
   resale: <PartyPopper className="h-5 w-5 text-exeter" strokeWidth={1.8} />,
+  inbox: <Inbox className="h-5 w-5 text-exeter" strokeWidth={1.8} />,
 };
 
 const POLL_MS = 12_000;

@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   PartyPopper,
   Flag,
+  Inbox,
   Mail,
   ExternalLink,
   Moon,
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useAdminBadges } from '@/hooks/useAdminLiveSync';
 
-type BadgeKey = 'pendingReports' | 'hiddenPosts';
+type BadgeKey = 'pendingReports' | 'hiddenPosts' | 'unreadEmails';
 
 const NAV: {
   href: string;
@@ -35,7 +36,8 @@ const NAV: {
   { href: '/admin/listings', label: 'Listings', icon: ShoppingBag },
   { href: '/admin/nightlife', label: 'Nightlife', icon: PartyPopper },
   { href: '/admin/reports', label: 'Reports', icon: Flag, badgeKey: 'pendingReports' },
-  { href: '/admin/conversations', label: 'Messages', icon: Mail },
+  { href: '/admin/inbox', label: 'Inbox', icon: Inbox, badgeKey: 'unreadEmails' },
+  { href: '/admin/conversations', label: 'Campus DMs', icon: Mail },
 ];
 
 const THEME_KEY = 'theme-preference';

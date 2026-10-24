@@ -306,3 +306,71 @@ model Message {
 
   @@index([conversationId])
 }
+
+model AdminEmailThread {
+  id                 String       @id @default(cuid())
+  subject            String
+  normalizedSubject  String
+  snippet            String       @default("")
+  lastMessageAt      DateTime     @default(now())
+  starred            Boolean      @default(false)
+  archived           Boolean      @default(false)
+  trashed            Boolean      @default(false)
+  unreadCount        Int          @default(0)
+  participants       Json         @default("[]")
+  createdAt          DateTime     @default(now())
+  messages           AdminEmail[]
+
+  @@index([lastMessageAt])
+  @@index([normalizedSubject])
+  @@index([trashed, archived, lastMessageAt])
+}
+
+model AdminEmail {
+  id                String                 @id @default(cuid())
+  threadId          String
+  direction         String
+  isDraft           Boolean                @default(false)
+  fromName          String?
+  fromEmail         String
+  toEmails          Json
+  ccEmails          Json                   @default("[]")
+  bccEmails         Json                   @default("[]")
+  replyTo           String?
+  subject           String
+  textBody          String                 @default("")
+  htmlBody          String                 @default("")
+  snippet           String                 @default("")
+  read              Boolean                @default(false)
+  starred           Boolean                @default(false)
+  trashed           Boolean                @default(false)
+  resendEmailId     String?                @unique
+  messageId         String?
+  inReplyTo         String?
+  referencesHeader  String?
+  resendStatus      String?
+  sentByEmail       String?
+  createdAt         DateTime               @default(now())
+  thread            AdminEmailThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  attachments       AdminEmailAttachment[]
+
+  @@index([threadId])
+  @@index([messageId])
+  @@index([fromEmail])
+  @@index([isDraft, createdAt])
+}
+
+model AdminEmailAttachment {
+  id                 String     @id @default(cuid())
+  emailId            String
+  filename           String
+  contentType        String
+  size               Int        @default(0)
+  contentId          String?
+  disposition        String?
+  resendAttachmentId String?
+  createdAt          DateTime   @default(now())
+  email              AdminEmail @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([emailId])
+}

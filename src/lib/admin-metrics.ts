@@ -26,6 +26,7 @@ export interface AdminMetrics {
     bannedUsers: number;
     hiddenPosts: number;
     newUsersToday: number;
+    unreadEmails: number;
   };
   activityTrend: ActivityPoint[];
   reportsTrend: { date: string; reports: number }[];
@@ -57,6 +58,7 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
     ticketCount,
     soldTickets,
     pendingReportTargets,
+    unreadEmails,
     activityTrend,
     reportsTrend,
     categoryBreakdown,
@@ -74,6 +76,15 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
     prisma.nightlifeTicket.count(),
     prisma.nightlifeTicket.findMany({ where: { status: 'sold' }, select: { price: true } }),
     prisma.report.findMany({ select: { targetType: true, targetId: true }, distinct: ['targetType', 'targetId'] }),
+    prisma.adminEmail.count({
+      where: {
+        direction: 'inbound',
+        read: false,
+        trashed: false,
+        isDraft: false,
+        thread: { archived: false, trashed: false },
+      },
+    }),
     getActivityTrend(30),
     getReportsTrend(14),
     getCategoryBreakdown(),
@@ -124,6 +135,13 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
       href: '/admin/nightlife',
       prefix: '£',
     },
+    {
+      key: 'inbox',
+      label: 'Unread inbox',
+      value: unreadEmails,
+      href: '/admin/inbox',
+      alert: unreadEmails > 0,
+    },
   ];
 
   return {
@@ -133,6 +151,7 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
       bannedUsers: bannedCount,
       hiddenPosts: hiddenPostCount,
       newUsersToday,
+      unreadEmails,
     },
     activityTrend,
     reportsTrend,
