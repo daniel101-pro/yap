@@ -370,7 +370,7 @@ export default function AdminInbox() {
       {setupNeeded && (
         <div className="flex items-start justify-between gap-3 border-b border-amber-500/20 bg-amber-50 px-5 py-3 text-[12px] text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
           <p>
-            {list.config.receiveBlocker === 'restricted_api_key' ? (
+            {list?.config.receiveBlocker === 'restricted_api_key' ? (
               <>
                 Sending works from <span className="font-semibold">{address}</span>, but the Resend API key is{' '}
                 <span className="font-semibold">send-only</span>. Create a <span className="font-semibold">Full access</span> key
