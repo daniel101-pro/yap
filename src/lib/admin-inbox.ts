@@ -37,13 +37,40 @@ export function getInboxFromHeader(): string {
   return `YAP <${getInboxAddress()}>`;
 }
 
-export function getInboxConfig() {
+export async function getReceiveHealth() {
+  const key = getResendApiKey();
+  if (!key) {
+    return { canReadInbox: false, reason: 'missing_api_key' as const };
+  }
+
+  try {
+    const response = await fetch('https://api.resend.com/emails/receiving?limit=1', {
+      headers: { Authorization: `Bearer ${key}` },
+      cache: 'no-store',
+    });
+    if (response.ok) {
+      return { canReadInbox: true, reason: null };
+    }
+    const body = (await response.json().catch(() => ({}))) as { name?: string; message?: string };
+    if (body.name === 'restricted_api_key' || response.status === 401) {
+      return { canReadInbox: false, reason: 'restricted_api_key' as const };
+    }
+    return { canReadInbox: false, reason: 'receive_api_error' as const };
+  } catch {
+    return { canReadInbox: false, reason: 'receive_api_error' as const };
+  }
+}
+
+export async function getInboxConfig() {
   const address = getInboxAddress();
+  const receive = await getReceiveHealth();
   return {
     address,
     from: getInboxFromHeader(),
     resendConfigured: Boolean(getResendApiKey()),
     webhookConfigured: Boolean(getResendWebhookSecret()),
+    canReadInbox: receive.canReadInbox,
+    receiveBlocker: receive.reason,
   };
 }
 
@@ -568,7 +595,7 @@ export async function listInboxThreads(options: {
     pageSize,
     total,
     counts,
-    config: getInboxConfig(),
+    config: await getInboxConfig(),
     threads: threads.map((thread) => {
       const latest = thread.messages[0];
       return {
