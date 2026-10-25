@@ -119,32 +119,65 @@ async function fileToBase64(file: File): Promise<string> {
 
 function splitQuotedText(text: string): { main: string; quoted: string } {
   const lines = text.split('\n');
-  const attribution = lines.findIndex((line) => /^\s*On .{0,300}wrote:\s*$/.test(line));
+  const isAttribution = (index: number) => {
+    const line = lines[index].trim();
+    if (!/^On\s/.test(line)) return false;
+    return line.endsWith('wrote:') || (lines[index + 1] ?? '').trim().endsWith('wrote:');
+  };
+  const attribution = lines.findIndex((_, index) => isAttribution(index));
   const firstQuote = lines.findIndex((line) => line.trimStart().startsWith('>'));
   const cut = [attribution, firstQuote].filter((index) => index > 0).sort((a, b) => a - b)[0];
   if (cut === undefined) return { main: text, quoted: '' };
   return { main: lines.slice(0, cut).join('\n').trimEnd(), quoted: lines.slice(cut).join('\n') };
 }
 
-function hasQuotedHistory(html: string, text: string) {
-  if (html.trim()) return /class="?gmail_quote|<blockquote/i.test(html);
-  return Boolean(splitQuotedText(text).quoted);
+const HTML_QUOTE = /class="?gmail_quote|<blockquote/i;
+
+/** Plain-text quotes (`>` lines) hide inside our own HTML wrapper, so render those from text. */
+function renderFromText(html: string, text: string) {
+  if (!html.trim()) return true;
+  return !HTML_QUOTE.test(html) && Boolean(splitQuotedText(text).quoted);
 }
 
-function wrapEmailHtml(html: string, text: string, showQuoted: boolean) {
+function hasQuotedHistory(html: string, text: string) {
+  return renderFromText(html, text) ? Boolean(splitQuotedText(text).quoted) : HTML_QUOTE.test(html);
+}
+
+function previewText(message: ThreadMessage) {
+  const main = message.textBody ? splitQuotedText(message.textBody).main : message.snippet;
+  return main.replace(/\s+/g, ' ').trim() || message.snippet;
+}
+
+function wrapEmailHtml(html: string, text: string, showQuoted: boolean, dark: boolean) {
   const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const fromText = renderFromText(html, text);
   const plain = showQuoted ? text : splitQuotedText(text).main;
-  const body = html.trim() || `<div style="white-space:pre-wrap">${escape(plain)}</div>`;
+  const body = fromText ? `<div style="white-space:pre-wrap">${escape(plain)}</div>` : html;
   const hideQuotes = showQuoted ? '' : '.gmail_quote,blockquote{display:none!important}';
+  const palette = dark
+    ? 'html,body{color:#e8eaed} a{color:#5eead4} blockquote,.gmail_attr{color:#9aa0a6;border-color:#3c4043}'
+    : 'html,body{color:#202124} a{color:#00796B} blockquote,.gmail_attr{color:#5f6368}';
   return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank" rel="noopener"><style>
-    html,body{margin:0;padding:0;background:transparent;color:#1a1a1a;font:14px/1.6 ui-sans-serif,system-ui,sans-serif;word-break:break-word;}
+    html,body{margin:0;padding:0;background:transparent;font:14px/1.6 ui-sans-serif,system-ui,sans-serif;word-break:break-word;}
     img,video{max-width:100%;height:auto;}
-    a{color:#00796B;}
-    blockquote{margin:0 0 0 .8ex;border-left:1px solid #ccc;padding-left:1ex;color:#5f6368}
-    .gmail_attr{color:#5f6368;margin:12px 0 4px}
+    blockquote{margin:0 0 0 .8ex;border-left:1px solid #ccc;padding-left:1ex}
+    .gmail_attr{margin:12px 0 4px}
+    ${palette}
     ${hideQuotes}
-    @media (prefers-color-scheme: dark){html,body{color:#f5f5f7} a{color:#5eead4} blockquote,.gmail_attr{color:#9aa0a6}}
   </style></head><body>${body}</body></html>`;
+}
+
+function useIsDark() {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const update = () => setDark(root.classList.contains('dark'));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+  return dark;
 }
 
 export default function AdminInbox() {
@@ -560,21 +593,27 @@ export default function AdminInbox() {
               )}
 
               {thread && (
-                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-                  <h2 className="mb-6 text-[22px] font-normal tracking-tight">{thread.subject || '(no subject)'}</h2>
-                  <div className="space-y-8">
-                    {visibleMessages.map((message) => (
-                      <MessageCard key={message.id} message={message} />
+                <div className="min-h-0 flex-1 overflow-y-auto bg-surface/40 px-4 py-5 sm:px-6">
+                  <div className="mb-4 flex items-baseline gap-3">
+                    <h2 className="min-w-0 truncate text-[20px] font-normal tracking-tight">{thread.subject || '(no subject)'}</h2>
+                    {visibleMessages.length > 1 && (
+                      <span className="shrink-0 text-[12px] text-muted">{visibleMessages.length} messages</span>
+                    )}
+                  </div>
+                  <div className="divide-y divide-divider overflow-hidden rounded-2xl border border-divider bg-background">
+                    {visibleMessages.map((message, index) => (
+                      <MessageCard
+                        key={message.id}
+                        message={message}
+                        defaultOpen={index === visibleMessages.length - 1}
+                      />
                     ))}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => replyTo(false)}
-                    className="mt-8 inline-flex items-center gap-2 rounded-full border border-divider px-4 py-2 text-[13px] hover:bg-surface"
-                  >
-                    <Reply className="h-4 w-4" />
-                    Reply
-                  </button>
+                  <div className="mt-4 flex flex-wrap gap-2 pb-4">
+                    <ReplyPill label="Reply" icon={Reply} onClick={() => replyTo(false)} />
+                    <ReplyPill label="Reply all" icon={ReplyAll} onClick={() => replyTo(true)} />
+                    <ReplyPill label="Forward" icon={Send} onClick={forward} />
+                  </div>
                 </div>
               )}
             </>
@@ -720,50 +759,115 @@ function ComposeField({
   );
 }
 
-function MessageCard({ message }: { message: ThreadMessage }) {
+function ReplyPill({ label, icon: Icon, onClick }: { label: string; icon: typeof Reply; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-2 rounded-full border border-divider bg-background px-5 py-2 text-[13px] font-medium hover:bg-surface"
+    >
+      <Icon className="h-4 w-4" strokeWidth={1.8} />
+      {label}
+    </button>
+  );
+}
+
+function Avatar({ message, size }: { message: ThreadMessage; size: 'sm' | 'md' }) {
+  const outbound = message.direction === 'outbound';
+  return (
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-full font-semibold ${
+        size === 'md' ? 'h-10 w-10 text-[14px]' : 'h-8 w-8 text-[12px]'
+      } ${outbound ? 'bg-exeter text-white' : 'bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200'}`}
+    >
+      {initials(message.fromName, message.fromEmail)}
+    </div>
+  );
+}
+
+function formatMessageDate(iso: string) {
+  return new Date(iso).toLocaleString('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function MessageCard({ message, defaultOpen }: { message: ThreadMessage; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [showQuoted, setShowQuoted] = useState(false);
+  const dark = useIsDark();
   const html = useMemo(
-    () => wrapEmailHtml(message.htmlBody, message.textBody, showQuoted),
-    [message.htmlBody, message.textBody, showQuoted],
+    () => wrapEmailHtml(message.htmlBody, message.textBody, showQuoted, dark),
+    [message.htmlBody, message.textBody, showQuoted, dark],
   );
   const quoted = useMemo(() => hasQuotedHistory(message.htmlBody, message.textBody), [message.htmlBody, message.textBody]);
   const name = displayName(message.fromName, message.fromEmail);
+  const outbound = message.direction === 'outbound';
+  const failed = message.resendStatus === 'failed' || message.resendStatus === 'bounced';
+
+  const nameLine = (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="truncate text-[14px] font-semibold">{name}</span>
+      {outbound && (
+        <span className="shrink-0 rounded-full bg-exeter/10 px-2 py-px text-[11px] font-semibold text-exeter">You</span>
+      )}
+      {failed && (
+        <span className="shrink-0 rounded-full bg-red-500/10 px-2 py-px text-[11px] font-semibold text-red-500">
+          {message.resendStatus === 'bounced' ? 'Bounced' : 'Not sent'}
+        </span>
+      )}
+    </span>
+  );
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-surface/70"
+      >
+        <Avatar message={message} size="sm" />
+        <span className="w-44 shrink-0">{nameLine}</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-muted">{previewText(message)}</span>
+        <time className="shrink-0 text-[12px] text-muted">{formatWhen(message.createdAt)}</time>
+      </button>
+    );
+  }
 
   return (
-    <section>
-      <header className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#c2e7ff] text-[13px] font-semibold text-[#041e49] dark:bg-exeter/20 dark:text-exeter">
-          {initials(message.fromName, message.fromEmail)}
-        </div>
+    <section className="px-5 py-4">
+      <header className="flex cursor-pointer items-start gap-3" onClick={() => setOpen(false)}>
+        <Avatar message={message} size="md" />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[14px] font-semibold leading-tight">{name}</p>
-              <p className="mt-0.5 truncate text-[12px] text-muted">{message.fromEmail}</p>
-              <p className="truncate text-[12px] text-muted">to {message.to.join(', ') || 'me'}</p>
+              <div className="flex min-w-0 items-baseline gap-1.5">
+                {nameLine}
+                <span className="hidden truncate text-[12px] text-muted sm:inline">&lt;{message.fromEmail}&gt;</span>
+              </div>
+              <p className="mt-0.5 truncate text-[12px] text-muted">
+                to {message.to.join(', ') || 'me'}
+                {message.cc.length > 0 && `, cc ${message.cc.join(', ')}`}
+              </p>
             </div>
-            <time className="shrink-0 pt-0.5 text-[12px] text-muted">
-              {new Date(message.createdAt).toLocaleString('en-GB', {
-                day: 'numeric',
-                month: 'short',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </time>
+            <time className="shrink-0 pt-0.5 text-[12px] text-muted">{formatMessageDate(message.createdAt)}</time>
           </div>
         </div>
       </header>
-      <div className="pl-[52px]">
+      <div className="mt-3 sm:pl-[52px]">
         <iframe
           title={message.subject}
           sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
           srcDoc={html}
-          className="mt-3 w-full border-0"
-          style={{ minHeight: 40 }}
+          className="block w-full border-0"
+          style={{ minHeight: 24 }}
           onLoad={(event) => {
             const doc = event.currentTarget.contentDocument;
             if (!doc) return;
-            event.currentTarget.style.height = `${Math.max(40, doc.documentElement.scrollHeight + 4)}px`;
+            event.currentTarget.style.height = `${Math.max(24, doc.documentElement.scrollHeight + 2)}px`;
           }}
         />
         {quoted && (
@@ -771,7 +875,8 @@ function MessageCard({ message }: { message: ThreadMessage }) {
             type="button"
             onClick={() => setShowQuoted((value) => !value)}
             title={showQuoted ? 'Hide quoted text' : 'Show trimmed content'}
-            className="mt-1 rounded-md bg-surface px-2 text-[13px] font-bold leading-4 text-muted hover:bg-surface-hover"
+            aria-label={showQuoted ? 'Hide quoted text' : 'Show trimmed content'}
+            className="mt-2 rounded-full bg-surface-hover px-2.5 py-0.5 text-[12px] font-bold leading-4 tracking-widest text-muted hover:text-foreground"
           >
             •••
           </button>

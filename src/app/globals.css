@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 .nightlife-marker-wrapper {
   background: transparent;
   border: none;
@@ -55,7 +57,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
-:root {
+@theme static {
   --color-background: #FFFFFF;
   --color-foreground: #1a1a1a;
   --color-muted: #6b7280;
